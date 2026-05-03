@@ -17,7 +17,7 @@ function Invoke-CIPPStandardSPFileRequests {
             Enables secure file upload functionality that allows external users to submit files directly to company folders without seeing other submissions or folder contents. This provides a professional and secure way to collect documents from clients, vendors, and partners while maintaining data privacy and security.
         ADDEDCOMPONENT
             {"type":"switch","name":"standards.SPFileRequests.state","label":"Enable File Requests"}
-            {"type":"number","name":"standards.SPFileRequests.expirationDays","label":"Link Expiration 1-730 Days (Optional)","required":false}
+            {"type":"number","name":"standards.SPFileRequests.expirationDays","label":"Link Expiration 1-730 Days (Optional)","required":false,"validators":{"min":{"value":1,"message":"Minimum value is 1"},"max":{"value":730,"message":"Maximum value is 730"}}}
         IMPACT
             Medium Impact
         ADDEDDATE
@@ -26,6 +26,14 @@ function Invoke-CIPPStandardSPFileRequests {
             Set-SPOTenant -CoreRequestFilesLinkEnabled \$true -OneDriveRequestFilesLinkEnabled \$true -CoreRequestFilesLinkExpirationInDays 30 -OneDriveRequestFilesLinkExpirationInDays 30
         RECOMMENDEDBY
             "CIPP"
+        REQUIREDCAPABILITIES
+            "SHAREPOINTWAC"
+            "SHAREPOINTSTANDARD"
+            "SHAREPOINTENTERPRISE"
+            "SHAREPOINTENTERPRISE_EDU"
+            "SHAREPOINTENTERPRISE_GOV"
+            "ONEDRIVE_BASIC"
+            "ONEDRIVE_ENTERPRISE"
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
@@ -33,7 +41,7 @@ function Invoke-CIPPStandardSPFileRequests {
     #>
 
     param($Tenant, $Settings)
-    $TestResult = Test-CIPPStandardLicense -StandardName 'SPFileRequests' -TenantFilter $Tenant -RequiredCapabilities @('SHAREPOINTWAC', 'SHAREPOINTSTANDARD', 'SHAREPOINTENTERPRISE', 'SHAREPOINTENTERPRISE_EDU', 'ONEDRIVE_BASIC', 'ONEDRIVE_ENTERPRISE')
+    $TestResult = Test-CIPPStandardLicense -StandardName 'SPFileRequests' -TenantFilter $Tenant -RequiredCapabilities @('SHAREPOINTWAC', 'SHAREPOINTSTANDARD', 'SHAREPOINTENTERPRISE', 'SHAREPOINTENTERPRISE_EDU', 'SHAREPOINTENTERPRISE_GOV', 'ONEDRIVE_BASIC', 'ONEDRIVE_ENTERPRISE')
 
     if ($TestResult -eq $false) {
         Write-LogMessage -API 'Standards' -tenant $tenant -message 'The tenant is not licenced for this standard SPFileRequests' -sev Error
