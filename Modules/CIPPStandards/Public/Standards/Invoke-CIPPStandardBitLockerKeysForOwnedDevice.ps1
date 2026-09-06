@@ -13,6 +13,7 @@ function Invoke-CIPPStandardBitLockerKeysForOwnedDevice {
         CAT
             Entra (AAD) Standards
         TAG
+            "ZTNA21954"
         EXECUTIVETEXT
             Gives administrators centralized control over BitLocker recovery secrets—restrict access to ensure IT-assisted recovery flows, or allow self-service when rapid device unlocks are a priority.
         ADDEDCOMPONENT
@@ -27,7 +28,7 @@ function Invoke-CIPPStandardBitLockerKeysForOwnedDevice {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)

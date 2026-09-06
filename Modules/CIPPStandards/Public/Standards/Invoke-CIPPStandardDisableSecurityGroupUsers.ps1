@@ -15,6 +15,7 @@ function Invoke-CIPPStandardDisableSecurityGroupUsers {
         TAG
             "CISA (MS.AAD.20.1v1)"
             "NIST CSF 2.0 (PR.AA-05)"
+            "ZTNA21868"
         EXECUTIVETEXT
             Restricts the creation of security groups to IT administrators only, preventing employees from creating unauthorized access groups that could bypass security controls. This ensures proper governance of access permissions and maintains centralized control over who can access what resources.
         ADDEDCOMPONENT
@@ -28,7 +29,7 @@ function Invoke-CIPPStandardDisableSecurityGroupUsers {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)

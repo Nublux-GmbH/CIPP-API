@@ -6,7 +6,7 @@ function Invoke-CippTestORCA120_spam {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA120_spam' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Zero Hour Autopurge Enabled for Spam' -UserImpact 'High' -ImplementationEffort 'Low' -Category 'Anti-Spam'
@@ -26,16 +26,16 @@ function Invoke-CippTestORCA120_spam {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All anti-spam policies have Zero Hour Autopurge for Spam enabled.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All anti-spam policies have Zero Hour Autopurge for Spam enabled.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-spam policies do not have Zero Hour Autopurge for Spam enabled.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Spam ZAP Enabled |`n"
-            $Result += "|------------|-----------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-spam policies do not have Zero Hour Autopurge for Spam enabled.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Spam ZAP Enabled |`n")
+            $null = $Result.Append("|------------|-----------------|`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Identity) | $($Policy.SpamZapEnabled) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.SpamZapEnabled) |`n")
             }
         }
 

@@ -6,7 +6,7 @@ function Invoke-CippTestORCA225 {
     param($Tenant)
 
     try {
-        $AtpPolicy = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAtpPolicyForO365'
+        $AtpPolicy = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAtpPolicyForO365'
 
         if (-not $AtpPolicy) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA225' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Medium' -Name 'Safe Documents is enabled for Office clients' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Safe Attachments'
@@ -17,12 +17,12 @@ function Invoke-CippTestORCA225 {
 
         if ($Policy.EnableSafeDocs -eq $true) {
             $Status = 'Passed'
-            $Result = "Safe Documents is enabled for Office clients.`n`n"
-            $Result += "**EnableSafeDocs:** $($Policy.EnableSafeDocs)"
+            $Result = [System.Text.StringBuilder]::new("Safe Documents is enabled for Office clients.`n`n")
+            $null = $Result.Append("**EnableSafeDocs:** $($Policy.EnableSafeDocs)")
         } else {
             $Status = 'Failed'
-            $Result = "Safe Documents is NOT enabled for Office clients.`n`n"
-            $Result += "**EnableSafeDocs:** $($Policy.EnableSafeDocs)"
+            $Result = [System.Text.StringBuilder]::new("Safe Documents is NOT enabled for Office clients.`n`n")
+            $null = $Result.Append("**EnableSafeDocs:** $($Policy.EnableSafeDocs)")
         }
 
         Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA225' -TestType 'Identity' -Status $Status -ResultMarkdown $Result -Risk 'Medium' -Name 'Safe Documents is enabled for Office clients' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Safe Attachments'

@@ -20,6 +20,12 @@ function Invoke-CIPPStandardEnableFIDO2 {
             "EIDSCA.AF05"
             "EIDSCA.AF06"
             "NIST CSF 2.0 (PR.AA-03)"
+            "EIDSCAAF01"
+            "EIDSCAAF02"
+            "EIDSCAAF03"
+            "EIDSCAAF04"
+            "EIDSCAAF05"
+            "EIDSCAAF06"
         EXECUTIVETEXT
             Enables support for hardware security keys (like YubiKey) that provide the highest level of authentication security. These physical devices prevent phishing attacks and credential theft, offering superior protection for high-value accounts and sensitive business operations.
         ADDEDCOMPONENT
@@ -34,7 +40,7 @@ function Invoke-CIPPStandardEnableFIDO2 {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)
@@ -55,6 +61,8 @@ function Invoke-CIPPStandardEnableFIDO2 {
             try {
                 Set-CIPPAuthenticationPolicy -Tenant $tenant -APIName 'Standards' -AuthenticationMethodId 'Fido2' -Enabled $true
             } catch {
+                $ErrorMessage = Get-CippException -Exception $_
+                Write-LogMessage -API 'Standards' -tenant $tenant -message "Failed to enable FIDO2 Support. Error: $($ErrorMessage.NormalizedError)" -sev Error -LogData $ErrorMessage
             }
         }
     }

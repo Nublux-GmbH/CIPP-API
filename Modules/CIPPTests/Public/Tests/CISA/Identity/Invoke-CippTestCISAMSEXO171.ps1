@@ -16,7 +16,7 @@ function Invoke-CippTestCISAMSEXO171 {
     )
 
     try {
-        $AuditConfig = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAdminAuditLogConfig'
+        $AuditConfig = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAdminAuditLogConfig'
 
         if (-not $AuditConfig) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoAdminAuditLogConfig cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Microsoft Purview Audit logging SHALL be enabled' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Audit & Compliance' -TestId 'CISAMSEXO171' -TenantFilter $Tenant
@@ -26,14 +26,14 @@ function Invoke-CippTestCISAMSEXO171 {
         $AuditConfigObject = $AuditConfig | Select-Object -First 1
 
         if ($AuditConfigObject.UnifiedAuditLogIngestionEnabled -eq $true) {
-            $Result = "✅ **Pass**: Microsoft Purview Audit (Standard) logging is enabled.`n`n"
-            $Result += "**Current Settings:**`n"
-            $Result += "- UnifiedAuditLogIngestionEnabled: $($AuditConfigObject.UnifiedAuditLogIngestionEnabled)"
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: Microsoft Purview Audit (Standard) logging is enabled.`n`n")
+            $null = $Result.Append("**Current Settings:**`n")
+            $null = $Result.Append("- UnifiedAuditLogIngestionEnabled: $($AuditConfigObject.UnifiedAuditLogIngestionEnabled)")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: Microsoft Purview Audit (Standard) logging is not enabled.`n`n"
-            $Result += "**Current Settings:**`n"
-            $Result += "- UnifiedAuditLogIngestionEnabled: $($AuditConfigObject.UnifiedAuditLogIngestionEnabled)"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: Microsoft Purview Audit (Standard) logging is not enabled.`n`n")
+            $null = $Result.Append("**Current Settings:**`n")
+            $null = $Result.Append("- UnifiedAuditLogIngestionEnabled: $($AuditConfigObject.UnifiedAuditLogIngestionEnabled)")
             $Status = 'Failed'
         }
 

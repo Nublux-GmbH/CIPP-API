@@ -6,7 +6,7 @@ function Invoke-CippTestORCA228 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA228' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'No trusted senders in Anti-phishing policy' -UserImpact 'High' -ImplementationEffort 'Low' -Category 'Anti-Phish'
@@ -28,17 +28,17 @@ function Invoke-CippTestORCA228 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "No anti-phishing policies have trusted senders configured.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("No anti-phishing policies have trusted senders configured.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-phishing policies have trusted senders configured.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Excluded Senders Count |`n"
-            $Result += "|------------|----------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-phishing policies have trusted senders configured.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Excluded Senders Count |`n")
+            $null = $Result.Append("|------------|----------------------|`n")
             foreach ($Policy in $FailedPolicies) {
                 $Count = if ($Policy.ExcludedSenders) { $Policy.ExcludedSenders.Count } else { 0 }
-                $Result += "| $($Policy.Identity) | $Count |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $Count |`n")
             }
         }
 

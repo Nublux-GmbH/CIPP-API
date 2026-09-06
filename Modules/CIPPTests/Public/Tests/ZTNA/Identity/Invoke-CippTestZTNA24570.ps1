@@ -19,7 +19,7 @@ function Invoke-CippTestZTNA24570 {
     #Tested
     try {
         # Get organization info to check if hybrid identity is enabled
-        $OrgInfo = New-CIPPDbRequest -TenantFilter $Tenant -Type 'Organization'
+        $OrgInfo = Get-CIPPTestData -TenantFilter $Tenant -Type 'Organization'
 
         if (-not $OrgInfo) {
             $TestParams = @{
@@ -59,7 +59,7 @@ function Invoke-CippTestZTNA24570 {
         }
 
         # Get roles to find Directory Synchronization Accounts role
-        $Roles = New-CIPPDbRequest -TenantFilter $Tenant -Type 'Roles'
+        $Roles = Get-CIPPTestData -TenantFilter $Tenant -Type 'Roles'
 
         if (-not $Roles) {
             $TestParams = @{
@@ -137,21 +137,21 @@ function Invoke-CippTestZTNA24570 {
         }
 
         if ($Status -eq 'Passed') {
-            $ResultMarkdown = "✅ **Pass**: Hybrid identity is enabled and using a service principal for synchronization.`n`n"
-            $ResultMarkdown += "**Last Sync**: $lastSyncDate`n`n"
-            $ResultMarkdown += '[Review configuration](https://entra.microsoft.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles)'
+            $ResultMarkdown = [System.Text.StringBuilder]::new("✅ **Pass**: Hybrid identity is enabled and using a service principal for synchronization.`n`n")
+            $null = $ResultMarkdown.Append("**Last Sync**: $lastSyncDate`n`n")
+            $null = $ResultMarkdown.Append('[Review configuration](https://entra.microsoft.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles)')
         } else {
-            $ResultMarkdown = "❌ **Fail**: Hybrid identity is enabled but using $($EnabledUsers.Count) enabled user account(s) for synchronization.`n`n"
-            $ResultMarkdown += "**Last Sync**: $lastSyncDate`n`n"
-            $ResultMarkdown += "## Directory Synchronization Accounts role members`n`n"
-            $ResultMarkdown += "| Display Name | User Principal Name | Enabled |`n"
-            $ResultMarkdown += "| :----------- | :------------------ | :------ |`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("❌ **Fail**: Hybrid identity is enabled but using $($EnabledUsers.Count) enabled user account(s) for synchronization.`n`n")
+            $null = $ResultMarkdown.Append("**Last Sync**: $lastSyncDate`n`n")
+            $null = $ResultMarkdown.Append("## Directory Synchronization Accounts role members`n`n")
+            $null = $ResultMarkdown.Append("| Display Name | User Principal Name | Enabled |`n")
+            $null = $ResultMarkdown.Append("| :----------- | :------------------ | :------ |`n")
 
             foreach ($user in $EnabledUsers) {
-                $ResultMarkdown += "| $($user.DisplayName) | $($user.UserPrincipalName) | ✅ Yes |`n"
+                $null = $ResultMarkdown.Append("| $($user.DisplayName) | $($user.UserPrincipalName) | ✅ Yes |`n")
             }
 
-            $ResultMarkdown += "`n[Migrate to service principal](https://entra.microsoft.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles)"
+            $null = $ResultMarkdown.Append("`n[Migrate to service principal](https://entra.microsoft.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles)")
         }
 
         $TestParams = @{

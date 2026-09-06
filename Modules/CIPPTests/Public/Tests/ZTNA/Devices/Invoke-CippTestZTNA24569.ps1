@@ -9,7 +9,7 @@ function Invoke-CippTestZTNA24569 {
     #Tested - Device
 
     try {
-        $DeviceConfigs = New-CIPPDbRequest -TenantFilter $Tenant -Type 'IntuneDeviceConfigurations'
+        $DeviceConfigs = Get-CIPPTestData -TenantFilter $Tenant -Type 'IntuneDeviceConfigurations'
 
         if (-not $DeviceConfigs) {
             Add-CippTestResult -TenantFilter $Tenant -TestId $TestId -TestType 'Devices' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'FileVault encryption protects data on macOS devices' -UserImpact 'Medium' -ImplementationEffort 'Low' -Category 'Device'
@@ -25,23 +25,23 @@ function Invoke-CippTestZTNA24569 {
         $Passed = $AssignedFileVaultPolicies.Count -gt 0
 
         if ($Passed) {
-            $ResultMarkdown = "✅ macOS FileVault encryption policies are configured and assigned in Intune.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("✅ macOS FileVault encryption policies are configured and assigned in Intune.`n`n")
         } else {
-            $ResultMarkdown = "❌ No relevant macOS FileVault encryption policies are configured or assigned.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("❌ No relevant macOS FileVault encryption policies are configured or assigned.`n`n")
         }
 
         if ($FileVaultEnabledPolicies.Count -gt 0) {
-            $ResultMarkdown += "## macOS FileVault Policies`n`n"
-            $ResultMarkdown += "| Policy Name | FileVault Enabled | Assigned |`n"
-            $ResultMarkdown += "| :---------- | :---------------- | :------- |`n"
+            $null = $ResultMarkdown.Append("## macOS FileVault Policies`n`n")
+            $null = $ResultMarkdown.Append("| Policy Name | FileVault Enabled | Assigned |`n")
+            $null = $ResultMarkdown.Append("| :---------- | :---------------- | :------- |`n")
 
             foreach ($policy in $FileVaultEnabledPolicies) {
                 $fileVault = if ($policy.fileVaultEnabled -eq $true) { '✅ Yes' } else { '❌ No' }
                 $assigned = if ($policy.assignments -and $policy.assignments.Count -gt 0) { '✅ Yes' } else { '❌ No' }
-                $ResultMarkdown += "| $($policy.displayName) | $fileVault | $assigned |`n"
+                $null = $ResultMarkdown.Append("| $($policy.displayName) | $fileVault | $assigned |`n")
             }
         } else {
-            $ResultMarkdown += "No macOS Endpoint Protection policies with FileVault settings found.`n"
+            $null = $ResultMarkdown.Append("No macOS Endpoint Protection policies with FileVault settings found.`n")
         }
 
         $Status = if ($Passed) { 'Passed' } else { 'Failed' }

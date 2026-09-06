@@ -16,7 +16,7 @@ function Invoke-CippTestCISAMSEXO11 {
     )
 
     try {
-        $RemoteDomains = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoRemoteDomain'
+        $RemoteDomains = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoRemoteDomain'
 
         if (-not $RemoteDomains) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoRemoteDomain cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Automatic forwarding to external domains SHALL be disabled' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO11' -TestType 'Identity' -TenantFilter $Tenant
@@ -26,14 +26,14 @@ function Invoke-CippTestCISAMSEXO11 {
         $ForwardingEnabledDomains = $RemoteDomains | Where-Object { $_.AutoForwardEnabled -eq $true }
 
         if (($ForwardingEnabledDomains | Measure-Object).Count -eq 0) {
-            $Result = '✅ **Pass**: Automatic forwarding to external domains is disabled for all remote domains.'
+            $Result = [System.Text.StringBuilder]::new('✅ **Pass**: Automatic forwarding to external domains is disabled for all remote domains.')
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: $($ForwardingEnabledDomains.Count) domain(s) have automatic forwarding enabled:`n`n"
-            $Result += "| Domain Name | Auto Forward |`n"
-            $Result += "| :---------- | :----------- |`n"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: $($ForwardingEnabledDomains.Count) domain(s) have automatic forwarding enabled:`n`n")
+            $null = $Result.Append("| Domain Name | Auto Forward |`n")
+            $null = $Result.Append("| :---------- | :----------- |`n")
             foreach ($Domain in $ForwardingEnabledDomains) {
-                $Result += "| $($Domain.DomainName) | $($Domain.AutoForwardEnabled) |`n"
+                $null = $Result.Append("| $($Domain.DomainName) | $($Domain.AutoForwardEnabled) |`n")
             }
             $Status = 'Failed'
         }

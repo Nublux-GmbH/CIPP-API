@@ -6,8 +6,8 @@ function Invoke-CippTestZTNA21799 {
     param($Tenant)
     #tested
     try {
-        $authMethodPolicy = New-CIPPDbRequest -TenantFilter $Tenant -Type 'AuthenticationMethodsPolicy'
-        $allCAPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ConditionalAccessPolicies'
+        $authMethodPolicy = Get-CIPPTestData -TenantFilter $Tenant -Type 'AuthenticationMethodsPolicy'
+        $allCAPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ConditionalAccessPolicies'
 
         if (-not $allCAPolicies -or -not $authMethodPolicy) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ZTNA21799' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Restrict high risk sign-ins' -UserImpact 'Medium' -ImplementationEffort 'Medium' -Category 'Conditional Access'
@@ -46,9 +46,9 @@ function Invoke-CippTestZTNA21799 {
         $tableRows = ''
 
         if ($matchedPolicies.Count -gt 0) {
-            $mdInfo = "`n## $reportTitle`n`n"
-            $mdInfo += "| Policy Name | Grant Controls | Target Users |`n"
-            $mdInfo += "| :---------- | :------------- | :----------- |`n"
+            $mdInfo = [System.Text.StringBuilder]::new("`n## $reportTitle`n`n")
+            $null = $mdInfo.Append("| Policy Name | Grant Controls | Target Users |`n")
+            $null = $mdInfo.Append("| :---------- | :------------- | :----------- |`n")
 
             foreach ($policy in $matchedPolicies) {
                 $grantControls = switch ($policy.grantControls) {
@@ -69,7 +69,7 @@ function Invoke-CippTestZTNA21799 {
                     $policy.conditions.users.includeUsers -join ', '
                 }
 
-                $mdInfo += "| $($policy.displayName) | $grantControls | $targetUsers |`n"
+                $null = $mdInfo.Append("| $($policy.displayName) | $grantControls | $targetUsers |`n")
             }
         }
         $testResultMarkdown = $testResultMarkdown + $mdInfo

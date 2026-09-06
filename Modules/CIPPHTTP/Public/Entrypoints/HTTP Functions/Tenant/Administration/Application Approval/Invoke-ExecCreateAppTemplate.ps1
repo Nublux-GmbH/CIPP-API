@@ -34,12 +34,12 @@ function Invoke-ExecCreateAppTemplate {
             [PSCustomObject]@{
                 id     = 'app'
                 method = 'GET'
-                url    = "/applications(appId='$AppId')?`$select=id,appId,displayName,requiredResourceAccess"
+                url    = "/applications(appId='$AppId')?`$select=id,appId,displayName,signInAudience,requiredResourceAccess"
             }
             [PSCustomObject]@{
                 id     = 'splist'
                 method = 'GET'
-                url    = '/servicePrincipals?$top=999&$select=id,appId,displayName'
+                url    = '/servicePrincipals?$top=999&$select=id,appId,displayName,signInAudience'
             }
         )
 
@@ -51,6 +51,20 @@ function Invoke-ExecCreateAppTemplate {
 
         # Find the specific service principal in the list
         $SPResult = $TenantInfo | Where-Object { $_.appId -eq $AppId } | Select-Object -First 1
+
+        # Determine the source app's sign-in audience so we only build Enterprise App
+        # templates for genuinely multi-tenant apps. A single-tenant app (AzureADMyOrg)
+        # cannot be deployed via an appId-based service principal, and copying it to the
+        # partner tenant as multi-tenant produces a template that fails to deploy. Those
+        # apps must use a Manifest (single-tenant) template instead.
+        $MultiTenantAudiences = @('AzureADMultipleOrgs', 'AzureADandPersonalMicrosoftAccount')
+        $SignInAudience = $AppResult.body.signInAudience
+        if ([string]::IsNullOrWhiteSpace($SignInAudience)) {
+            $SignInAudience = $SPResult.signInAudience
+        }
+        if (-not [string]::IsNullOrWhiteSpace($SignInAudience) -and $SignInAudience -notin $MultiTenantAudiences) {
+            throw "Application '$DisplayName' is single-tenant (signInAudience '$SignInAudience') and cannot be used as an Enterprise App template. Create a Manifest (single-tenant) template for this app instead."
+        }
 
         # Get the app details based on type
         if ($Type -eq 'servicePrincipal') {
@@ -123,7 +137,7 @@ function Invoke-ExecCreateAppTemplate {
                 $Permissions = @($DelegateResourceAccess) + @($ApplicationResourceAccess) | Where-Object { $_ -ne $null }
 
                 if ($Permissions.Count -eq 0) {
-                    Write-LogMessage -headers $Request.headers -API $APINAME -message "No permissions found for $AppId via any method" -sev 'Warn'
+                    Write-LogMessage -headers $Request.headers -API $APINAME -message "No permissions found for $AppId via any method" -sev 'Warning'
                 } else {
                     Write-LogMessage -headers $Request.headers -API $APINAME -message "Extracted $($Permissions.Count) resource permission(s) from service principal grants" -Sev 'Info'
                 }
@@ -222,6 +236,17 @@ function Invoke-ExecCreateAppTemplate {
         $PermissionSetId = $null
         $PermissionSetName = "$DisplayName (Auto-created)"
 
+        # The service principal fallback above emits a separate entry for delegated access
+        # (oauth2PermissionGrants) and application access (appRoleAssignments), so a resource that has
+        # both appears twice. $CIPPPermissions is keyed by resourceAppId, so without merging here the
+        # second entry overwrites the first and one of the two permission types is silently discarded.
+        $Permissions = @($Permissions | Group-Object -Property resourceAppId | ForEach-Object {
+                [PSCustomObject]@{
+                    resourceAppId  = $_.Name
+                    resourceAccess = @($_.Group.resourceAccess)
+                }
+            })
+
         if ($Permissions -and $Permissions.Count -gt 0) {
             # Build bulk requests to get all service principals efficiently using object IDs from cached list
             $BulkRequests = [System.Collections.Generic.List[object]]::new()
@@ -246,7 +271,7 @@ function Invoke-ExecCreateAppTemplate {
                         })
                     $RequestIndex++
                 } else {
-                    Write-LogMessage -headers $Request.headers -API $APINAME -message "Service principal not found in tenant for appId: $ResourceAppId" -sev 'Warn'
+                    Write-LogMessage -headers $Request.headers -API $APINAME -message "Service principal not found in tenant for appId: $ResourceAppId" -sev 'Warning'
                 }
             }
 
@@ -275,7 +300,7 @@ function Invoke-ExecCreateAppTemplate {
                 $ResourceSP = $SPLookup[$ResourceAppId]
 
                 if (!$ResourceSP) {
-                    Write-LogMessage -headers $Request.headers -API $APINAME -message "Service principal not found for appId: $ResourceAppId - skipping permission translation" -sev 'Warn'
+                    Write-LogMessage -headers $Request.headers -API $APINAME -message "Service principal not found for appId: $ResourceAppId - skipping permission translation" -sev 'Warning'
                     continue
                 }
 
@@ -292,7 +317,7 @@ function Invoke-ExecCreateAppTemplate {
                             }
                             [void]$AppPerms.Add($PermObj)
                         } else {
-                            Write-LogMessage -headers $Request.headers -API $APINAME -message "Application permission $($Access.id) not found in $ResourceAppId appRoles" -sev 'Warn'
+                            Write-LogMessage -headers $Request.headers -API $APINAME -message "Application permission $($Access.id) not found in $ResourceAppId appRoles" -sev 'Warning'
                         }
                     } elseif ($Access.type -eq 'Scope') {
                         Write-Information "Processing delegated permission with id $($Access.id) for resource appId $ResourceAppId"
@@ -320,9 +345,11 @@ function Invoke-ExecCreateAppTemplate {
                     }
                 }
 
+                # A resource can carry several oauth2PermissionGrants rows (an AllPrincipals grant plus
+                # per-user grants), which repeats the same scope once merged, so dedupe on the claim value.
                 $CIPPPermissions[$ResourceAppId] = [PSCustomObject]@{
-                    applicationPermissions = @($AppPerms)
-                    delegatedPermissions   = @($DelegatedPerms)
+                    applicationPermissions = @($AppPerms | Sort-Object -Property value -Unique)
+                    delegatedPermissions   = @($DelegatedPerms | Sort-Object -Property value -Unique)
                 }
             }
 
@@ -365,14 +392,14 @@ function Invoke-ExecCreateAppTemplate {
                             $PermissionSetId = $TemplateData.PermissionSetId
                             Write-LogMessage -headers $Request.headers -API $APINAME -message "Found existing permission set ID: $PermissionSetId in template" -Sev 'Info'
                         } else {
-                            Write-LogMessage -headers $Request.headers -API $APINAME -message 'Existing template found but has no PermissionSetId' -sev 'Warn'
+                            Write-LogMessage -headers $Request.headers -API $APINAME -message 'Existing template found but has no PermissionSetId' -sev 'Warning'
                         }
                         break
                     }
                 }
             } catch {
                 # Ignore lookup errors
-                Write-LogMessage -headers $Request.headers -API $APINAME -message "Error during template lookup: $($_.Exception.Message)" -sev 'Warn'
+                Write-LogMessage -headers $Request.headers -API $APINAME -message "Error during template lookup: $($_.Exception.Message)" -sev 'Warning'
             }
         }
 

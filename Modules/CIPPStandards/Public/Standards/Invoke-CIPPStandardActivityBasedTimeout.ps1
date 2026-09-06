@@ -16,6 +16,9 @@ function Invoke-CIPPStandardActivityBasedTimeout {
             "CIS M365 5.0 (1.3.2)"
             "spo_idle_session_timeout"
             "NIST CSF 2.0 (PR.AA-03)"
+            "ZTNA21813"
+            "ZTNA21814"
+            "ZTNA21815"
         EXECUTIVETEXT
             Automatically logs out inactive users from Microsoft 365 applications after a specified time period to prevent unauthorized access to company data on unattended devices. This security measure protects against data breaches when employees leave workstations unlocked.
         ADDEDCOMPONENT
@@ -31,7 +34,7 @@ function Invoke-CIPPStandardActivityBasedTimeout {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)

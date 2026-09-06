@@ -4,6 +4,8 @@ function Invoke-ListAlertsQueue {
         Entrypoint
     .ROLE
         CIPP.Alert.Read
+    .DESCRIPTION
+        Lists configured alert rules including webhook rules and scheduled alert tasks, showing their configuration and tenant scope.
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
@@ -34,24 +36,55 @@ function Invoke-ListAlertsQueue {
             RepeatsEvery    = 'When received'
             AlertComment    = $Task.AlertComment
             CustomSubject   = $Task.CustomSubject
+            Enabled         = $Task.Disabled -ne $true
             RawAlert        = @{
-                Conditions    = @($Conditions)
-                Actions       = @($($Task.Actions | ConvertFrom-Json -Depth 10 -ErrorAction SilentlyContinue))
-                Tenants       = @($Tenants)
-                type          = $Task.type
-                RowKey        = $Task.RowKey
-                PartitionKey  = $Task.PartitionKey
-                AlertComment  = $Task.AlertComment
-                CustomSubject = $Task.CustomSubject
+                Conditions        = @($Conditions)
+                Actions           = @($($Task.Actions | ConvertFrom-Json -Depth 10 -ErrorAction SilentlyContinue))
+                Tenants           = @($Tenants)
+                type              = $Task.type
+                RowKey            = $Task.RowKey
+                PartitionKey      = $Task.PartitionKey
+                AlertComment      = $Task.AlertComment
+                CustomSubject     = $Task.CustomSubject
+                PsaTicketPriority = $Task.PsaTicketPriority
             }
         }
 
         if ($AllowedTenants -notcontains 'AllTenants') {
+            $HasAccess = $false
             foreach ($Tenant in $Tenants) {
-                if ($AllowedTenants -contains $Tenant.customerId) {
-                    $AllTasksArrayList.Add($TaskEntry)
-                    break
+                if ($Tenant.type -eq 'Group') {
+                    try {
+                        $GroupFilter = @([PSCustomObject]@{
+                                type  = 'Group'
+                                value = $Tenant.value
+                                label = $Tenant.label
+                            })
+                        $ExpandedGroupTenants = Expand-CIPPTenantGroups -TenantFilter $GroupFilter
+                        foreach ($ExpandedTenant in $ExpandedGroupTenants) {
+                            if ($AllowedTenants -contains $ExpandedTenant.addedFields.customerId) {
+                                $HasAccess = $true
+                                break
+                            }
+                        }
+                    } catch {
+                        Write-Warning "Failed to expand tenant group for webhook access check: $($_.Exception.Message)"
+                    }
+                } elseif ($Tenant.value -eq 'AllTenants') {
+                    # AllTenants alerts cover the caller's own tenants, so restricted readers may see them
+                    $HasAccess = $true
+                } else {
+                    # Selector objects store customerId under addedFields; fall back to resolving
+                    # the stored defaultDomainName for entries saved without it
+                    $CustomerId = $Tenant.addedFields.customerId ?? $Tenant.customerId ?? ($TenantList | Where-Object -Property defaultDomainName -EQ $Tenant.value).customerId
+                    if ($AllowedTenants -contains $CustomerId) {
+                        $HasAccess = $true
+                    }
                 }
+                if ($HasAccess) { break }
+            }
+            if ($HasAccess) {
+                $AllTasksArrayList.Add($TaskEntry)
             }
         } else {
             $AllTasksArrayList.Add($TaskEntry)
@@ -60,14 +93,46 @@ function Invoke-ListAlertsQueue {
 
     foreach ($Task in $ScheduledTasks) {
         if ($Task.excludedTenants) {
-            $ExcludedTenants = @($Task.excludedTenants)
+            $ExcludedTenants = @($Task.excludedTenants -split ',' | Where-Object { $_ })
         } else {
             $ExcludedTenants = @()
         }
+        # Excluded tenant groups are stored separately as JSON — surface them as objects so the
+        # frontend renders a single named chip and can round-trip the group on edit
+        if ($Task.excludedTenantGroups) {
+            $ExcludedGroups = @($Task.excludedTenantGroups | ConvertFrom-Json -ErrorAction SilentlyContinue)
+            if ($ExcludedGroups) {
+                $ExcludedTenants = @($ExcludedTenants + $ExcludedGroups)
+            }
+        }
 
-        # Handle tenant group display information for alerts
+        # Handle tenant display information for alerts
         $TenantsForDisplay = @()
-        if ($Task.TenantGroup) {
+        if ($Task.Tenants) {
+            # Multi tenant alert
+            try {
+                $TenantsParsed = $Task.Tenants | ConvertFrom-Json -Depth 10 -ErrorAction Stop
+                $TenantsForDisplay = @($TenantsParsed | ForEach-Object {
+                        [PSCustomObject]@{
+                            label = $_.label ?? $_.value
+                            value = $_.value
+                            type  = $_.type ?? 'Tenant'
+                        }
+                    })
+                # A legacy row's excludedTenants is a snapshot of every unselected tenant, ignored at
+                # run time and hidden here. A versioned row's is the operator's own picks.
+                if (-not $Task.TenantSelectionVersion) {
+                    $ExcludedTenants = @()
+                }
+            } catch {
+                Write-Warning "Failed to parse Tenants for alert task $($Task.RowKey): $($_.Exception.Message)"
+                $TenantsForDisplay = @([PSCustomObject]@{
+                        label = $Task.Tenant
+                        value = $Task.Tenant
+                        type  = 'Tenant'
+                    })
+            }
+        } elseif ($Task.TenantGroup) {
             try {
                 $TenantGroupObject = $Task.TenantGroup | ConvertFrom-Json -ErrorAction SilentlyContinue
                 if ($TenantGroupObject) {
@@ -110,26 +175,22 @@ function Invoke-ListAlertsQueue {
             AlertComment    = $Task.AlertComment
             RawAlert        = $Task
             ScriptName      = $ScriptName
+            Enabled         = $Task.Disabled -ne $true
         }
 
         if ($AllowedTenants -notcontains 'AllTenants') {
-            # For tenant groups, we need to expand and check access
+            $HasAccess = $false
             if ($Task.TenantGroup) {
+                # Expand legacy TenantGroup field and check access
                 try {
                     $TenantGroupObject = $Task.TenantGroup | ConvertFrom-Json -ErrorAction SilentlyContinue
                     if ($TenantGroupObject) {
-                        # Create a tenant filter object for expansion
                         $TenantFilterForExpansion = @([PSCustomObject]@{
                                 type  = 'Group'
                                 value = $TenantGroupObject.value
                                 label = $TenantGroupObject.label
                             })
-
-                        # Expand the tenant group to individual tenants
                         $ExpandedTenants = Expand-CIPPTenantGroups -TenantFilter $TenantFilterForExpansion
-
-                        # Check if user has access to any tenant in the group
-                        $HasAccess = $false
                         foreach ($ExpandedTenant in $ExpandedTenants) {
                             $TenantInfo = $TenantList | Where-Object -Property defaultDomainName -EQ $ExpandedTenant.value
                             if ($TenantInfo -and $AllowedTenants -contains $TenantInfo.customerId) {
@@ -137,20 +198,55 @@ function Invoke-ListAlertsQueue {
                                 break
                             }
                         }
-
-                        if ($HasAccess) {
-                            $AllTasksArrayList.Add($TaskEntry)
-                        }
                     }
                 } catch {
                     Write-Warning "Failed to expand tenant group for access check: $($_.Exception.Message)"
                 }
+            } elseif ($Task.Tenants) {
+                # Multi-tenant alert - may contain groups or individual tenants
+                try {
+                    $TenantsParsed = $Task.Tenants | ConvertFrom-Json -ErrorAction Stop
+                    foreach ($TenantItem in $TenantsParsed) {
+                        if ($TenantItem.type -eq 'Group') {
+                            $GroupFilter = @([PSCustomObject]@{
+                                    type  = 'Group'
+                                    value = $TenantItem.value
+                                    label = $TenantItem.label
+                                })
+                            $ExpandedGroupTenants = Expand-CIPPTenantGroups -TenantFilter $GroupFilter
+                            foreach ($ExpandedTenant in $ExpandedGroupTenants) {
+                                if ($AllowedTenants -contains $ExpandedTenant.addedFields.customerId) {
+                                    $HasAccess = $true
+                                    break
+                                }
+                            }
+                        } elseif ($TenantItem.value -eq 'AllTenants') {
+                            # AllTenants alerts cover the caller's own tenants, so restricted readers may see them
+                            $HasAccess = $true
+                        } else {
+                            $TenantInfo = $TenantList | Where-Object -Property defaultDomainName -EQ $TenantItem.value
+                            $CustomerId = $TenantItem.addedFields.customerId ?? $TenantInfo.customerId
+                            if ($AllowedTenants -contains $CustomerId) {
+                                $HasAccess = $true
+                            }
+                        }
+                        if ($HasAccess) { break }
+                    }
+                } catch {
+                    Write-Warning "Failed to parse Tenants for access check on task $($Task.RowKey): $($_.Exception.Message)"
+                }
+            } elseif ($Task.Tenant -eq 'AllTenants') {
+                # AllTenants alerts cover the caller's own tenants, so restricted readers may see them
+                $HasAccess = $true
             } else {
-                # Regular tenant access check
+                # Regular single-tenant access check
                 $Tenant = $TenantList | Where-Object -Property defaultDomainName -EQ $Task.Tenant
                 if ($AllowedTenants -contains $Tenant.customerId) {
-                    $AllTasksArrayList.Add($TaskEntry)
+                    $HasAccess = $true
                 }
+            }
+            if ($HasAccess) {
+                $AllTasksArrayList.Add($TaskEntry)
             }
         } else {
             $AllTasksArrayList.Add($TaskEntry)

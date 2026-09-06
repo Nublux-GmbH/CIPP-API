@@ -16,7 +16,7 @@ function Invoke-CippTestCISAMSEXO173 {
     )
 
     try {
-        $AuditConfig = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAdminAuditLogConfig'
+        $AuditConfig = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAdminAuditLogConfig'
 
         if (-not $AuditConfig) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoAdminAuditLogConfig cache not found. Please refresh the cache for this tenant.' -Risk 'Medium' -Name 'Audit logs SHALL be maintained for at least 1 year' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Audit & Compliance' -TestId 'CISAMSEXO173' -TenantFilter $Tenant
@@ -26,14 +26,14 @@ function Invoke-CippTestCISAMSEXO173 {
         $AuditConfigObject = $AuditConfig | Select-Object -First 1
 
         if ($AuditConfigObject.AdminAuditLogEnabled -eq $true) {
-            $Result = "✅ **Pass**: Admin audit log is enabled (provides 1 year retention).`n`n"
-            $Result += "**Current Settings:**`n"
-            $Result += "- AdminAuditLogEnabled: $($AuditConfigObject.AdminAuditLogEnabled)"
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: Admin audit log is enabled (provides 1 year retention).`n`n")
+            $null = $Result.Append("**Current Settings:**`n")
+            $null = $Result.Append("- AdminAuditLogEnabled: $($AuditConfigObject.AdminAuditLogEnabled)")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: Admin audit log is not enabled.`n`n"
-            $Result += "**Current Settings:**`n"
-            $Result += "- AdminAuditLogEnabled: $($AuditConfigObject.AdminAuditLogEnabled)"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: Admin audit log is not enabled.`n`n")
+            $null = $Result.Append("**Current Settings:**`n")
+            $null = $Result.Append("- AdminAuditLogEnabled: $($AuditConfigObject.AdminAuditLogEnabled)")
             $Status = 'Failed'
         }
 

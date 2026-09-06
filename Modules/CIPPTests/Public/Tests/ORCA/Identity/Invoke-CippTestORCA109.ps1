@@ -6,7 +6,7 @@ function Invoke-CippTestORCA109 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA109' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Senders are not being allow listed in an unsafe manner' -UserImpact 'High' -ImplementationEffort 'Low' -Category 'Anti-Spam'
@@ -29,18 +29,18 @@ function Invoke-CippTestORCA109 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "No anti-spam policies have sender allow lists configured.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("No anti-spam policies have sender allow lists configured.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-spam policies have sender allow lists configured.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Allowed Senders | Allowed Sender Domains |`n"
-            $Result += "|------------|----------------|----------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-spam policies have sender allow lists configured.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Allowed Senders | Allowed Sender Domains |`n")
+            $null = $Result.Append("|------------|----------------|----------------------|`n")
             foreach ($Policy in $FailedPolicies) {
                 $SenderCount = if ($Policy.AllowedSenders) { $Policy.AllowedSenders.Count } else { 0 }
                 $DomainCount = if ($Policy.AllowedSenderDomains) { $Policy.AllowedSenderDomains.Count } else { 0 }
-                $Result += "| $($Policy.Identity) | $SenderCount | $DomainCount |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $SenderCount | $DomainCount |`n")
             }
         }
 

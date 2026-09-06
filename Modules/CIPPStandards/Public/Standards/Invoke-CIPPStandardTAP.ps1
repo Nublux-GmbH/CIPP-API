@@ -13,6 +13,10 @@ function Invoke-CIPPStandardTAP {
         CAT
             Entra (AAD) Standards
         TAG
+            "ZTNA21845"
+            "ZTNA21846"
+            "EIDSCAAT01"
+            "EIDSCAAT02"
         EXECUTIVETEXT
             Enables temporary access passwords that IT administrators can generate for employees who are locked out or need emergency access to systems. These time-limited passwords provide a secure way to restore access without compromising long-term security policies.
         ADDEDCOMPONENT
@@ -28,7 +32,7 @@ function Invoke-CIPPStandardTAP {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)
@@ -55,6 +59,8 @@ function Invoke-CIPPStandardTAP {
             try {
                 Set-CIPPAuthenticationPolicy -Tenant $Tenant -APIName 'Standards' -AuthenticationMethodId 'TemporaryAccessPass' -Enabled $true -TAPisUsableOnce $config
             } catch {
+                $ErrorMessage = Get-CippException -Exception $_
+                Write-LogMessage -API 'Standards' -tenant $Tenant -message "Failed to enable Temporary Access Passwords. Error: $($ErrorMessage.NormalizedError)" -sev Error -LogData $ErrorMessage
             }
         }
     }

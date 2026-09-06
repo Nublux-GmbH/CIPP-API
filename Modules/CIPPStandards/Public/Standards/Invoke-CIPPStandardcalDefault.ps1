@@ -16,7 +16,7 @@ function Invoke-CIPPStandardcalDefault {
         EXECUTIVETEXT
             Configures how much calendar information employees share by default with colleagues, balancing collaboration needs with privacy. This setting determines whether others can see meeting details, free/busy times, or just availability, helping optimize scheduling while protecting sensitive meeting information.
         DISABLEDFEATURES
-            {"report":false,"warn":false,"remediate":false}
+            {"report":true,"warn":true,"remediate":false}
         ADDEDCOMPONENT
             {"type":"autoComplete","multiple":false,"label":"Select Sharing Level","name":"standards.calDefault.permissionLevel","options":[{"label":"Owner - The user can create, read, edit, and delete all items in the folder, and create subfolders. The user is both folder owner and folder contact.","value":"Owner"},{"label":"Publishing Editor - The user can create, read, edit, and delete all items in the folder, and create subfolders.","value":"PublishingEditor"},{"label":"Editor - The user can create items in the folder. The contents of the folder do not appear.","value":"Editor"},{"label":"Publishing Author.  The user can read, create all items/subfolders. Can modify and delete only items they create.","value":"PublishingAuthor"},{"label":"Author - The user can create and read items, and modify and delete items that they create.","value":"Author"},{"label":"Non Editing Author - The user has full read access and create items. Can can delete only own items.","value":"NonEditingAuthor"},{"label":"Reviewer - The user can read all items in the folder.","value":"Reviewer"},{"label":"Contributor - The user can create items and folders.","value":"Contributor"},{"label":"Availability Only - Indicates that the user can view only free/busy time within the calendar.","value":"AvailabilityOnly"},{"label":"Limited Details - The user can view free/busy time within the calendar and the subject and location of appointments.","value":"LimitedDetails"},{"label":"None - The user has no permissions on the folder.","value":"none"}]}
         IMPACT
@@ -26,15 +26,21 @@ function Invoke-CIPPStandardcalDefault {
         POWERSHELLEQUIVALENT
             Set-MailboxFolderPermission
         RECOMMENDEDBY
+        REQUIREDCAPABILITIES
+            "EXCHANGE_S_STANDARD"
+            "EXCHANGE_S_ENTERPRISE"
+            "EXCHANGE_S_STANDARD_GOV"
+            "EXCHANGE_S_ENTERPRISE_GOV"
+            "EXCHANGE_LITE"
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings, $QueueItem)
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'calDefault'
-    $TestResult = Test-CIPPStandardLicense -StandardName 'calDefault' -TenantFilter $Tenant -RequiredCapabilities @('EXCHANGE_S_STANDARD', 'EXCHANGE_S_ENTERPRISE', 'EXCHANGE_S_STANDARD_GOV', 'EXCHANGE_S_ENTERPRISE_GOV', 'EXCHANGE_LITE') #No Foundation because that does not allow powershell access
+    $TestResult = Test-CIPPStandardLicense -StandardName 'calDefault' -TenantFilter $Tenant -Preset Exchange #No Foundation because that does not allow powershell access
 
     if ($TestResult -eq $false) {
         return $true
@@ -58,16 +64,42 @@ function Invoke-CIPPStandardcalDefault {
     }
 
     # Filter to only Default user permissions that don't match target level
-    $DefaultPermissions = $CalendarPermissions | Where-Object { $_.User -eq 'Default' }
+    $DefaultPermissions = @($CalendarPermissions | Where-Object { $_.User -eq 'Default' })
     $NeedsUpdate = @($DefaultPermissions | Where-Object {
             $currentRights = if ($_.AccessRights -is [array]) { $_.AccessRights -join ',' } else { $_.AccessRights }
             $currentRights -ne $permissionLevel
         })
 
-    $CurrentValue = if ($NeedsUpdate.Count -eq 0) {
+    # Coverage is graded separately from compliance: a mailbox with no cached Default row can
+    # never enter $NeedsUpdate, so an incomplete collection used to read as a clean sweep.
+    # Matched by identity, not counts - a stale row for a deleted mailbox would offset a newly
+    # uncovered one. Identity is "<mailbox>:\<calendar>", keyed by UPN, alias or Exchange GUID.
+    $Mailboxes = @(New-CIPPDbRequest -TenantFilter $Tenant -Type 'Mailboxes' -Fields 'UPN', 'primarySmtpAddress', 'Id', 'ExternalDirectoryObjectId')
+
+    $GradedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($Permission in $DefaultPermissions) {
+        $MailboxId = ("$($Permission.Identity)" -split ':\\')[0]
+        # An empty key would match every mailbox missing that field and hide real gaps.
+        if ($MailboxId) { $null = $GradedIds.Add($MailboxId) }
+    }
+
+    $UncheckedMailboxes = @($Mailboxes | Where-Object {
+            $Keys = [string[]]@($_.UPN, $_.primarySmtpAddress, $_.Id, $_.ExternalDirectoryObjectId | Where-Object { $_ })
+            -not $GradedIds.Overlaps($Keys)
+        })
+    $Unchecked = $UncheckedMailboxes.Count
+
+    $UncheckedNames = @($UncheckedMailboxes | ForEach-Object { $_.UPN ? $_.UPN : $_.primarySmtpAddress })
+    $UncheckedSample = ($UncheckedNames | Select-Object -First 10) -join ', '
+    $CoverageWarning = "$Unchecked of $($Mailboxes.Count) mailboxes have no cached Default calendar permission and were NOT evaluated ($UncheckedSample). The calendar permission cache is incomplete."
+
+    $CurrentValue = if ($NeedsUpdate.Count -eq 0 -and $Unchecked -eq 0) {
         [PSCustomObject]@{ state = 'Configured correctly' }
     } else {
-        [PSCustomObject]@{ NonCompliantCalendars = $NeedsUpdate | Select-Object -Property Identity, AccessRights }
+        [PSCustomObject]@{
+            NonCompliantCalendars = @($NeedsUpdate | Select-Object -Property Identity, AccessRights)
+            UncheckedMailboxes    = $Unchecked
+        }
     }
     $ExpectedValue = [PSCustomObject]@{
         state = 'Configured correctly'
@@ -75,7 +107,11 @@ function Invoke-CIPPStandardcalDefault {
 
     if ($Settings.remediate -eq $true) {
         if ($NeedsUpdate.Count -eq 0) {
-            Write-LogMessage -API 'Standards' -tenant $Tenant -message 'All calendars already have the correct default permission level.' -sev Info
+            if ($Unchecked -gt 0) {
+                Write-LogMessage -API 'Standards' -tenant $Tenant -message "All $($DefaultPermissions.Count) checked calendars already have the correct default permission level, but $CoverageWarning" -sev Warning
+            } else {
+                Write-LogMessage -API 'Standards' -tenant $Tenant -message "All $($DefaultPermissions.Count) calendars already have the correct default permission level." -sev Info
+            }
         } else {
             $UpdateDB = $false
             try {
@@ -118,7 +154,11 @@ function Invoke-CIPPStandardcalDefault {
 
     if ($Settings.alert -eq $true) {
         if ($NeedsUpdate.Count -eq 0) {
-            Write-LogMessage -API 'Standards' -tenant $Tenant -message 'Default calendar permissions are correctly configured for all mailboxes' -sev Info
+            if ($Unchecked -gt 0) {
+                Write-LogMessage -API 'Standards' -tenant $Tenant -message "Default calendar permissions are correctly configured for all $($DefaultPermissions.Count) checked mailboxes, but $CoverageWarning" -sev Warning
+            } else {
+                Write-LogMessage -API 'Standards' -tenant $Tenant -message 'Default calendar permissions are correctly configured for all mailboxes' -sev Info
+            }
         } else {
             Write-StandardsAlert -message "Default calendar permission is not set to $permissionLevel for $($NeedsUpdate.Count) calendars" -object ($NeedsUpdate | Select-Object -Property Identity, AccessRights) -tenant $Tenant -standardName 'calDefault' -standardId $Settings.standardId
             Write-LogMessage -API 'Standards' -tenant $Tenant -message "Default calendar permission is not set to $permissionLevel for $($NeedsUpdate.Count) calendars" -sev Info

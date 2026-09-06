@@ -6,7 +6,7 @@ function Invoke-CippTestORCA119 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA119' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Medium' -Name 'Similar Domains Safety Tips is enabled' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Anti-Phish'
@@ -26,16 +26,16 @@ function Invoke-CippTestORCA119 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All anti-phishing policies have Similar Domains Safety Tips enabled.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All anti-phishing policies have Similar Domains Safety Tips enabled.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-phishing policies do not have Similar Domains Safety Tips enabled.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Enable Similar Domains Safety Tips |`n"
-            $Result += "|------------|-----------------------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-phishing policies do not have Similar Domains Safety Tips enabled.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Enable Similar Domains Safety Tips |`n")
+            $null = $Result.Append("|------------|-----------------------------------|`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Identity) | $($Policy.EnableSimilarDomainsSafetyTips) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.EnableSimilarDomainsSafetyTips) |`n")
             }
         }
 

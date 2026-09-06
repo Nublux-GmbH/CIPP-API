@@ -16,7 +16,7 @@ function Invoke-CIPPStandardTeamsMeetingRecordingExpiration {
         EXECUTIVETEXT
             Automatically removes old Teams meeting recordings after a specified period to manage storage costs and comply with data retention policies. This helps organizations balance the need to preserve important meeting content with storage efficiency and regulatory compliance requirements.
         ADDEDCOMPONENT
-            {"type":"number","name":"standards.TeamsMeetingRecordingExpiration.ExpirationDays","label":"Recording Expiration Days (e.g., 365)","required":true}
+            {"type":"number","name":"standards.TeamsMeetingRecordingExpiration.ExpirationDays","label":"Recording Expiration Days (e.g., 365)","required":true,"defaultValue":120,"validators":{"min":{"value":-1,"message":"Minimum value is -1"},"max":{"value":99999,"message":"Maximum value is 99999"}}}
         IMPACT
             Medium Impact
         ADDEDDATE
@@ -24,14 +24,20 @@ function Invoke-CIPPStandardTeamsMeetingRecordingExpiration {
         POWERSHELLEQUIVALENT
             Set-CsTeamsMeetingPolicy -Identity Global -MeetingRecordingExpirationDays \<days\>
         RECOMMENDEDBY
+        REQUIREDCAPABILITIES
+            "MCOSTANDARD"
+            "MCOEV"
+            "MCOIMP"
+            "TEAMS1"
+            "Teams_Room_Standard"
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)
-    $TestResult = Test-CIPPStandardLicense -StandardName 'TeamsMeetingRecordingExpiration' -TenantFilter $Tenant -RequiredCapabilities @('MCOSTANDARD', 'MCOEV', 'MCOIMP', 'TEAMS1', 'Teams_Room_Standard')
+    $TestResult = Test-CIPPStandardLicense -StandardName 'TeamsMeetingRecordingExpiration' -TenantFilter $Tenant -Preset Teams
 
     # Input validation
 
@@ -45,7 +51,7 @@ function Invoke-CIPPStandardTeamsMeetingRecordingExpiration {
     }
 
     try {
-        $CurrentExpirationDays = (New-TeamsRequest -TenantFilter $Tenant -Cmdlet 'Get-CsTeamsMeetingPolicy' -CmdParams @{Identity = 'Global' }).NewMeetingRecordingExpirationDays
+        $CurrentExpirationDays = (New-TeamsRequestV2 -TenantFilter $Tenant -Type 'TeamsMeetingPolicy' -Action Get -Identity 'Global').NewMeetingRecordingExpirationDays
     } catch {
         $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message
         Write-LogMessage -API 'Standards' -Tenant $Tenant -Message "Could not get the TeamsMeetingRecordingExpiration state for $Tenant. Error: $ErrorMessage" -Sev Error
@@ -64,7 +70,7 @@ function Invoke-CIPPStandardTeamsMeetingRecordingExpiration {
             }
 
             try {
-                New-TeamsRequest -TenantFilter $Tenant -Cmdlet 'Set-CsTeamsMeetingPolicy' -CmdParams $cmdParams
+                $null = New-TeamsRequestV2 -TenantFilter $Tenant -Type 'TeamsMeetingPolicy' -Action Set -Parameters $cmdParams
                 Write-LogMessage -API 'Standards' -tenant $Tenant -message "Successfully updated Teams Meeting Recording Expiration Policy to $ExpirationDays days." -sev Info
             } catch {
                 $ErrorMessage = Get-CippException -Exception $_
@@ -85,7 +91,6 @@ function Invoke-CIPPStandardTeamsMeetingRecordingExpiration {
     if ($Settings.report -eq $true) {
         Add-CIPPBPAField -FieldName 'TeamsMeetingRecordingExpiration' -FieldValue $CurrentExpirationDays -StoreAs string -Tenant $Tenant
 
-        $CurrentExpirationDays = if ($StateIsCorrect) { $true } else { $CurrentExpirationDays }
         $CurrentValue = @{
             MeetingRecordingExpirationDays = $CurrentExpirationDays
         }

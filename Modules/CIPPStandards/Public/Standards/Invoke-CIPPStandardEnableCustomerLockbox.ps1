@@ -7,8 +7,8 @@ function Invoke-CIPPStandardEnableCustomerLockbox {
     .SYNOPSIS
         (Label) Enable Customer Lockbox
     .DESCRIPTION
-        (Helptext) Enables Customer Lockbox that offers an approval process for Microsoft support to access organization data
-        (DocsDescription) Customer Lockbox ensures that Microsoft can't access your content to do service operations without your explicit approval. Customer Lockbox ensures only authorized requests allow access to your organizations data.
+        (Helptext) **Requires CustomerLockbox (E5, E7, A5, Purview Addon for BP, EDU or FL)** Enables Customer Lockbox that offers an approval process for Microsoft support to access organization data
+        (DocsDescription) \*\*Requires CustomerLockbox (E5, E7, A5, Purview Addon for BP, EDU or FL)\*\* Customer Lockbox ensures that Microsoft can't access your content to do service operations without your explicit approval. Customer Lockbox ensures only authorized requests allow access to your organizations data.
     .NOTES
         CAT
             Global Standards
@@ -26,14 +26,18 @@ function Invoke-CIPPStandardEnableCustomerLockbox {
             Set-OrganizationConfig -CustomerLockBoxEnabled \$true
         RECOMMENDEDBY
             "CIS"
+        REQUIREDCAPABILITIES
+            "CustomerLockbox"
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)
-    $TestResult = Test-CIPPStandardLicense -StandardName 'EnableCustomerLockbox' -TenantFilter $Tenant -RequiredCapabilities @('CustomerLockbox')
+    # Capabilities are keyed by servicePlanName from subscribedSkus - 'CustomerLockbox' is
+    # not one, so the old gate could never pass. The real plan names:
+    $TestResult = Test-CIPPStandardLicense -StandardName 'EnableCustomerLockbox' -TenantFilter $Tenant -RequiredCapabilities @('LOCKBOX_ENTERPRISE', 'LOCKBOX_ENTERPRISE_GOV', 'CustomerLockboxA_Enterprise')
 
     if ($TestResult -eq $false) {
         return $true

@@ -6,7 +6,7 @@ function Invoke-CippTestORCA205 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicies'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicies'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA205' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Medium' -Name 'Common attachment type filter is enabled' -UserImpact 'Medium' -ImplementationEffort 'Low' -Category 'Malware'
@@ -26,16 +26,16 @@ function Invoke-CippTestORCA205 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All malware filter policies have common attachment type filter enabled.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All malware filter policies have common attachment type filter enabled.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) malware filter policies do not have common attachment type filter enabled.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Enable File Filter |`n"
-            $Result += "|------------|-------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) malware filter policies do not have common attachment type filter enabled.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Enable File Filter |`n")
+            $null = $Result.Append("|------------|-------------------|`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Identity) | $($Policy.EnableFileFilter) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.EnableFileFilter) |`n")
             }
         }
 

@@ -6,7 +6,7 @@ function Invoke-CippTestORCA124 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoSafeAttachmentPolicies'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoSafeAttachmentPolicies'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA124' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Safe attachments unknown malware response set to block messages' -UserImpact 'Medium' -ImplementationEffort 'Low' -Category 'Safe Attachments'
@@ -26,16 +26,16 @@ function Invoke-CippTestORCA124 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All Safe Attachments policies have unknown malware response set to Block.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All Safe Attachments policies have unknown malware response set to Block.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) Safe Attachments policies do not have unknown malware response set to Block.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Action |`n"
-            $Result += "|------------|--------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) Safe Attachments policies do not have unknown malware response set to Block.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Action |`n")
+            $null = $Result.Append("|------------|--------|`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Identity) | $($Policy.Action) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.Action) |`n")
             }
         }
 

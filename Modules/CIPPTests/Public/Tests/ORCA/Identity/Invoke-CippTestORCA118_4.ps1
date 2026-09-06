@@ -6,8 +6,8 @@ function Invoke-CippTestORCA118_4 {
     param($Tenant)
 
     try {
-        $TransportRules = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoTransportRules'
-        $AcceptedDomains = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
+        $TransportRules = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoTransportRules'
+        $AcceptedDomains = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
 
         if (-not $TransportRules) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA118_4' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Own domains not allow listed in Transport Rules' -UserImpact 'High' -ImplementationEffort 'Low' -Category 'Transport Rules'
@@ -41,17 +41,17 @@ function Invoke-CippTestORCA118_4 {
 
         if ($FailedRules.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "No transport rules allow list own domains by setting SCL to -1.`n`n"
-            $Result += "**Total Transport Rules Checked:** $($TransportRules.Count)"
+            $Result = [System.Text.StringBuilder]::new("No transport rules allow list own domains by setting SCL to -1.`n`n")
+            $null = $Result.Append("**Total Transport Rules Checked:** $($TransportRules.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedRules.Count) transport rules allow list own domains by setting SCL to -1.`n`n"
-            $Result += "**Non-Compliant Rules:** $($FailedRules.Count)`n`n"
-            $Result += "| Rule Name | Own Domains in Rule |`n"
-            $Result += "|-----------|-------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedRules.Count) transport rules allow list own domains by setting SCL to -1.`n`n")
+            $null = $Result.Append("**Non-Compliant Rules:** $($FailedRules.Count)`n`n")
+            $null = $Result.Append("| Rule Name | Own Domains in Rule |`n")
+            $null = $Result.Append("|-----------|-------------------|`n")
             foreach ($Rule in $FailedRules) {
                 $OwnDomainsInRule = $Rule.SenderDomainIs | Where-Object { $OwnDomains -contains $_ }
-                $Result += "| $($Rule.Name) | $($OwnDomainsInRule -join ', ') |`n"
+                $null = $Result.Append("| $($Rule.Name) | $($OwnDomainsInRule -join ', ') |`n")
             }
         }
 

@@ -16,7 +16,7 @@ function Invoke-CippTestCISAMSEXO113 {
     )
 
     try {
-        $PresetPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoPresetSecurityPolicy'
+        $PresetPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoPresetSecurityPolicy'
 
         if (-not $PresetPolicies) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoPresetSecurityPolicy cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Mailbox intelligence SHALL be enabled' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO113' -TenantFilter $Tenant
@@ -29,16 +29,16 @@ function Invoke-CippTestCISAMSEXO113 {
         }
 
         if ($PoliciesWithIntelligence.Count -gt 0) {
-            $Result = "✅ **Pass**: $($PoliciesWithIntelligence.Count) policy/policies have mailbox intelligence enabled:`n`n"
-            $Result += "| Policy | Mailbox Intelligence | Intelligence Protection | State |`n"
-            $Result += "| :----- | :------------------- | :---------------------- | :---- |`n"
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: $($PoliciesWithIntelligence.Count) policy/policies have mailbox intelligence enabled:`n`n")
+            $null = $Result.Append("| Policy | Mailbox Intelligence | Intelligence Protection | State |`n")
+            $null = $Result.Append("| :----- | :------------------- | :---------------------- | :---- |`n")
             foreach ($Policy in $PoliciesWithIntelligence) {
-                $Result += "| $($Policy.Identity) | $($Policy.EnableMailboxIntelligence) | $($Policy.EnableMailboxIntelligenceProtection) | $($Policy.State) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.EnableMailboxIntelligence) | $($Policy.EnableMailboxIntelligenceProtection) | $($Policy.State) |`n")
             }
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: No policies found with mailbox intelligence enabled.`n`n"
-            $Result += 'Enable mailbox intelligence in preset security policies for AI-powered impersonation protection.'
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: No policies found with mailbox intelligence enabled.`n`n")
+            $null = $Result.Append('Enable mailbox intelligence in preset security policies for AI-powered impersonation protection.')
             $Status = 'Failed'
         }
 

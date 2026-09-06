@@ -22,6 +22,9 @@ function Invoke-CIPPStandardPerUserMFA {
             "Essential 8 (1173)"
             "Essential 8 (1401)"
             "NIST CSF 2.0 (PR.AA-03)"
+            "ZTNA21780"
+            "ZTNA21782"
+            "ZTNA21796"
         EXECUTIVETEXT
             Requires all employees to use multi-factor authentication for enhanced account security, significantly reducing the risk of unauthorized access from compromised passwords. This fundamental security measure protects against the majority of account-based attacks and is essential for maintaining strong cybersecurity posture.
         ADDEDCOMPONENT
@@ -35,7 +38,7 @@ function Invoke-CIPPStandardPerUserMFA {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
+        https://docs.cipp.app/user-documentation/tenant/standards/alignment/templates/available-standards
     #>
 
     param($Tenant, $Settings)

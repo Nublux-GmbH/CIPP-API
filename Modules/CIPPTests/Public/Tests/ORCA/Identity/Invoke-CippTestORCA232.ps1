@@ -6,8 +6,8 @@ function Invoke-CippTestORCA232 {
     param($Tenant)
 
     try {
-        $AcceptedDomains = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
-        $MalwarePolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicies'
+        $AcceptedDomains = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
+        $MalwarePolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicies'
 
         if (-not $AcceptedDomains) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA232' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No accepted domains found in database.' -Risk 'High' -Name 'Each domain has a malware filter policy' -UserImpact 'High' -ImplementationEffort 'Medium' -Category 'Malware'
@@ -38,15 +38,15 @@ function Invoke-CippTestORCA232 {
 
         if ($DomainsWithoutPolicy.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All accepted domains are covered by malware filter policies.`n`n"
-            $Result += "**Total Accepted Domains:** $($AcceptedDomains.Count)`n"
-            $Result += "**Total Malware Filter Policies:** $($MalwarePolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All accepted domains are covered by malware filter policies.`n`n")
+            $null = $Result.Append("**Total Accepted Domains:** $($AcceptedDomains.Count)`n")
+            $null = $Result.Append("**Total Malware Filter Policies:** $($MalwarePolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($DomainsWithoutPolicy.Count) domains do not have a malware filter policy.`n`n"
-            $Result += "**Domains Without Policy:**`n`n"
+            $Result = [System.Text.StringBuilder]::new("$($DomainsWithoutPolicy.Count) domains do not have a malware filter policy.`n`n")
+            $null = $Result.Append("**Domains Without Policy:**`n`n")
             foreach ($Domain in $DomainsWithoutPolicy) {
-                $Result += "- $Domain`n"
+                $null = $Result.Append("- $Domain`n")
             }
         }
 

@@ -15,20 +15,23 @@ function Invoke-CippTestZTNA21813 {
         $GlobalAdminRoleId = '62e90394-69f5-4237-9190-012177145e10'
 
         $PrivilegedRoles = Get-CippDbRole -TenantFilter $Tenant -IncludePrivilegedRoles
-        $RoleAssignmentScheduleInstances = New-CIPPDbRequest -TenantFilter $Tenant -Type 'RoleAssignmentScheduleInstances'
-        $RoleEligibilitySchedules = New-CIPPDbRequest -TenantFilter $Tenant -Type 'RoleEligibilitySchedules'
-        $Users = New-CIPPDbRequest -TenantFilter $Tenant -Type 'Users'
+        $RoleAssignmentScheduleInstances = Get-CIPPTestData -TenantFilter $Tenant -Type 'RoleAssignmentScheduleInstances'
+        $RoleEligibilitySchedules = Get-CIPPTestData -TenantFilter $Tenant -Type 'RoleEligibilitySchedules'
+        $Users = Get-CIPPTestData -TenantFilter $Tenant -Type 'Users'
 
         $AllGAUsers = @{}
         $AllPrivilegedUsers = @{}
         $UserRoleMap = @{}
 
         foreach ($Role in $PrivilegedRoles) {
+            # 'roleTemplateId', not 'templateId' — the Roles cache has no templateId field at all
+            # (description, displayName, id, memberCount, members, roleTemplateId), so both filters
+            # below compared against $null and matched nothing.
             $ActiveAssignments = $RoleAssignmentScheduleInstances | Where-Object {
-                $_.roleDefinitionId -eq $Role.templateId -and $_.assignmentType -eq 'Assigned'
+                $_.roleDefinitionId -eq $Role.roleTemplateId -and $_.assignmentType -eq 'Assigned'
             }
             $EligibleAssignments = $RoleEligibilitySchedules | Where-Object {
-                $_.roleDefinitionId -eq $Role.templateId
+                $_.roleDefinitionId -eq $Role.roleTemplateId
             }
 
             $AllAssignments = @($ActiveAssignments) + @($EligibleAssignments)
@@ -38,7 +41,9 @@ function Invoke-CippTestZTNA21813 {
                 if (-not $User) { continue }
 
                 $UserId = $User.id
-                $IsGARole = $Role.templateId -eq $GlobalAdminRoleId
+                # roleTemplateId — $Role.templateId does not exist, so this was always false and
+                # no user was ever classed as a Global Administrator.
+                $IsGARole = $Role.roleTemplateId -eq $GlobalAdminRoleId
 
                 if ($IsGARole) {
                     $AllGAUsers[$UserId] = $User
@@ -94,13 +99,13 @@ function Invoke-CippTestZTNA21813 {
             $HasHighRatio = $true
         }
 
-        $MdInfo = "`n## Privileged role assignment summary`n`n"
-        $MdInfo += "**Global administrator role count:** $GARoleAssignmentCount ($GAPercentage%) - $StatusIndicator`n`n"
-        $MdInfo += "**Other privileged role count:** $PrivilegedRoleAssignmentCount ($OtherPercentage%)`n`n"
+        $MdInfo = [System.Text.StringBuilder]::new("`n## Privileged role assignment summary`n`n")
+        $null = $MdInfo.Append("**Global administrator role count:** $GARoleAssignmentCount ($GAPercentage%) - $StatusIndicator`n`n")
+        $null = $MdInfo.Append("**Other privileged role count:** $PrivilegedRoleAssignmentCount ($OtherPercentage%)`n`n")
 
-        $MdInfo += "## User privileged role assignments`n`n"
-        $MdInfo += "| User | Global administrator | Other Privileged Role(s) |`n"
-        $MdInfo += "| :--- | :------------------- | :------ |`n"
+        $null = $MdInfo.Append("## User privileged role assignments`n`n")
+        $null = $MdInfo.Append("| User | Global administrator | Other Privileged Role(s) |`n")
+        $null = $MdInfo.Append("| :--- | :------------------- | :------ |`n")
 
         $SortedUsers = $UserRoleMap.Values | Sort-Object @{Expression = { -not $_.IsGA } }, @{Expression = { $_.User.displayName } }
 
@@ -112,11 +117,11 @@ function Invoke-CippTestZTNA21813 {
             $RolesList = if ($OtherRoles.Count -gt 0) { ($OtherRoles -join ', ') } else { '-' }
 
             $UserLink = "https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserProfileMenuBlade/~/AdministrativeRole/userId/$($User.id)/hidePreviewBanner~/true"
-            $MdInfo += "| [$($User.displayName)]($UserLink) | $IsGA | $RolesList |`n"
+            $null = $MdInfo.Append("| [$($User.displayName)]($UserLink) | $IsGA | $RolesList |`n")
         }
 
         if ($UserRoleMap.Count -eq 0) {
-            $MdInfo += "| No privileged users found | - | - |`n"
+            $null = $MdInfo.Append("| No privileged users found | - | - |`n")
         }
 
         if ($TotalPrivilegedRoleAssignmentCount -eq 0) {

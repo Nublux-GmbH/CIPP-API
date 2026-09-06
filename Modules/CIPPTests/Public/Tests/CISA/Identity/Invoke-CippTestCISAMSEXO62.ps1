@@ -16,7 +16,7 @@ function Invoke-CippTestCISAMSEXO62 {
     )
 
     try {
-        $SharingPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoSharingPolicy'
+        $SharingPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoSharingPolicy'
 
         if (-not $SharingPolicies) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoSharingPolicy cache not found. Please refresh the cache for this tenant.' -Risk 'Medium' -Name 'Calendar details SHALL NOT be shared with all domains' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Data Protection' -TestId 'CISAMSEXO62' -TenantFilter $Tenant
@@ -41,14 +41,14 @@ function Invoke-CippTestCISAMSEXO62 {
         }
 
         if ($FailedPolicies.Count -eq 0) {
-            $Result = "✅ **Pass**: No sharing policies allow detailed calendar sharing with all domains."
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: No sharing policies allow detailed calendar sharing with all domains.")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: $($FailedPolicies.Count) sharing policy/policies allow detailed calendar sharing with all domains:`n`n"
-            $Result += "| Policy Name | Enabled | Issue |`n"
-            $Result += "| :---------- | :------ | :---- |`n"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: $($FailedPolicies.Count) sharing policy/policies allow detailed calendar sharing with all domains:`n`n")
+            $null = $Result.Append("| Policy Name | Enabled | Issue |`n")
+            $null = $Result.Append("| :---------- | :------ | :---- |`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.'Policy Name') | $($Policy.Enabled) | $($Policy.Issue) |`n"
+                $null = $Result.Append("| $($Policy.'Policy Name') | $($Policy.Enabled) | $($Policy.Issue) |`n")
             }
             $Status = 'Failed'
         }

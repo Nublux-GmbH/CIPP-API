@@ -6,7 +6,7 @@ function Invoke-CippTestORCA220 {
     param($Tenant)
     
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
         
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA220' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Medium' -Name 'Advanced Phish filter Threshold level is adequate' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Anti-Phish'
@@ -27,16 +27,16 @@ function Invoke-CippTestORCA220 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All anti-phishing policies have adequate phishing threshold levels (2 or higher).`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All anti-phishing policies have adequate phishing threshold levels (2 or higher).`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-phishing policies have inadequate phishing threshold levels.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Phish Threshold Level |`n"
-            $Result += "|------------|----------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-phishing policies have inadequate phishing threshold levels.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Phish Threshold Level |`n")
+            $null = $Result.Append("|------------|----------------------|`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Identity) | $($Policy.PhishThresholdLevel) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.PhishThresholdLevel) |`n")
             }
         }
 

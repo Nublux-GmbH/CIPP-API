@@ -16,10 +16,10 @@ function Invoke-CippTestCISAMSEXO102 {
     )
 
     try {
-        $MalwarePolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicy'
+        $MalwarePolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicies'
 
         if (-not $MalwarePolicies) {
-            Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoMalwareFilterPolicy cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Emails identified as malware SHALL be quarantined or dropped' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO102' -TenantFilter $Tenant
+            Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoMalwareFilterPolicies cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Emails identified as malware SHALL be quarantined or dropped' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO102' -TenantFilter $Tenant
             return
         }
 
@@ -37,14 +37,14 @@ function Invoke-CippTestCISAMSEXO102 {
         }
 
         if ($FailedPolicies.Count -eq 0) {
-            $Result = "✅ **Pass**: All $($MalwarePolicies.Count) malware filter policy/policies quarantine or delete emails with malware."
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: All $($MalwarePolicies.Count) malware filter policy/policies quarantine or delete emails with malware.")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: $($FailedPolicies.Count) of $($MalwarePolicies.Count) malware filter policy/policies do not quarantine or delete malware:`n`n"
-            $Result += "| Policy Name | Current Action | Expected |`n"
-            $Result += "| :---------- | :------------- | :------- |`n"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: $($FailedPolicies.Count) of $($MalwarePolicies.Count) malware filter policy/policies do not quarantine or delete malware:`n`n")
+            $null = $Result.Append("| Policy Name | Current Action | Expected |`n")
+            $null = $Result.Append("| :---------- | :------------- | :------- |`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.'Policy Name') | $($Policy.'Current Action') | $($Policy.Expected) |`n"
+                $null = $Result.Append("| $($Policy.'Policy Name') | $($Policy.'Current Action') | $($Policy.Expected) |`n")
             }
             $Status = 'Failed'
         }

@@ -6,7 +6,7 @@ function Invoke-CippTestORCA189_2 {
     param($Tenant)
     
     try {
-        $Rules = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoTransportRules'
+        $Rules = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoTransportRules'
         
         if (-not $Rules) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA189_2' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Safe Links is not bypassed' -UserImpact 'High' -ImplementationEffort 'Low' -Category 'Safe Links'
@@ -22,14 +22,14 @@ function Invoke-CippTestORCA189_2 {
 
         if ($BypassRules.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "No transport rules are bypassing Safe Links processing."
+            $Result = [System.Text.StringBuilder]::new("No transport rules are bypassing Safe Links processing.")
         } else {
             $Status = 'Failed'
-            $Result = "$($BypassRules.Count) transport rules are bypassing Safe Links processing.`n`n"
-            $Result += "| Rule Name | Priority |`n"
-            $Result += "|-----------|----------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($BypassRules.Count) transport rules are bypassing Safe Links processing.`n`n")
+            $null = $Result.Append("| Rule Name | Priority |`n")
+            $null = $Result.Append("|-----------|----------|`n")
             foreach ($Rule in $BypassRules) {
-                $Result += "| $($Rule.Name) | $($Rule.Priority) |`n"
+                $null = $Result.Append("| $($Rule.Name) | $($Rule.Priority) |`n")
             }
         }
 
