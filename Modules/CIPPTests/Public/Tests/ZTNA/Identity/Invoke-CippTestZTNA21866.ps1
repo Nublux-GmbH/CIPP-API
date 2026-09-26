@@ -9,7 +9,7 @@ function Invoke-CippTestZTNA21866 {
 
     try {
         # Get directory recommendations from cache
-        $Recommendations = New-CIPPDbRequest -TenantFilter $Tenant -Type 'DirectoryRecommendations'
+        $Recommendations = Get-CIPPTestData -TenantFilter $Tenant -Type 'DirectoryRecommendations'
 
         if (-not $Recommendations) {
             Add-CippTestResult -TenantFilter $Tenant -TestId $TestId -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Medium' -Name 'All Microsoft Entra recommendations are addressed' -UserImpact 'Low' -ImplementationEffort 'Medium' -Category 'Monitoring'
@@ -22,19 +22,19 @@ function Invoke-CippTestZTNA21866 {
         $Passed = if ($UnaddressedRecommendations.Count -eq 0) { 'Passed' } else { 'Failed' }
 
         if ($Passed -eq 'Passed') {
-            $ResultMarkdown = '✅ All Entra Recommendations are addressed.'
+            $ResultMarkdown = [System.Text.StringBuilder]::new('✅ All Entra Recommendations are addressed.')
         } else {
-            $ResultMarkdown = "❌ Found $($UnaddressedRecommendations.Count) unaddressed Entra recommendations.`n`n"
-            $ResultMarkdown += "## Unaddressed Entra recommendations`n`n"
-            $ResultMarkdown += "| Display Name | Status | Insights | Priority |`n"
-            $ResultMarkdown += "| :--- | :--- | :--- | :--- |`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("❌ Found $($UnaddressedRecommendations.Count) unaddressed Entra recommendations.`n`n")
+            $null = $ResultMarkdown.Append("## Unaddressed Entra recommendations`n`n")
+            $null = $ResultMarkdown.Append("| Display Name | Status | Insights | Priority |`n")
+            $null = $ResultMarkdown.Append("| :--- | :--- | :--- | :--- |`n")
 
             foreach ($Item in $UnaddressedRecommendations) {
                 $DisplayName = $Item.displayName
                 $Status = $Item.status
                 $Insights = $Item.insights
                 $Priority = $Item.priority
-                $ResultMarkdown += "| $DisplayName | $Status | $Insights | $Priority |`n"
+                $null = $ResultMarkdown.Append("| $DisplayName | $Status | $Insights | $Priority |`n")
             }
         }
 

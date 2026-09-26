@@ -4,6 +4,8 @@ function Invoke-ExecGraphRequestProfile {
         Entrypoint
     .ROLE
         CIPP.Core.Read
+    .DESCRIPTION
+        Profiles a Graph request for troubleshooting, timing the call and reporting what it returned. Passing Mode=Diagnostics instead returns a point-in-time snapshot of the CIPPSharp REST client and token cache counters without calling Graph at all, and Reset=true clears those counters after reading them.
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
@@ -11,7 +13,7 @@ function Invoke-ExecGraphRequestProfile {
     $Mode = $Request.Query.Mode
 
     # ── Diagnostics-only mode ───────────────────────────────────────────
-    # Returns a point-in-time snapshot of the CIPPHttp DLL runtime state —
+    # Returns a point-in-time snapshot of the CIPPSharp DLL runtime state —
     # pool usage counters, top hosts, status code distribution, and the
     # CIPPTokenCache entry count. No Graph/EXO calls, no tenant required.
     if ($Mode -eq 'Diagnostics') {

@@ -16,24 +16,24 @@ function Invoke-CippTestCISAMSEXO153 {
     )
 
     try {
-        $SafeLinksPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoSafeLinksPolicy'
+        $SafeLinksPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoSafeLinksPolicies'
 
         if (-not $SafeLinksPolicies) {
-            Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoSafeLinksPolicy cache not found. Please refresh the cache for this tenant.' -Risk 'Medium' -Name 'User click tracking SHOULD be disabled' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO153' -TenantFilter $Tenant
+            Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoSafeLinksPolicies cache not found. Please refresh the cache for this tenant.' -Risk 'Medium' -Name 'User click tracking SHOULD be disabled' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO153' -TenantFilter $Tenant
             return
         }
 
         $FailedPolicies = $SafeLinksPolicies | Where-Object { $_.TrackUserClicks -eq $true }
 
         if ($FailedPolicies.Count -eq 0) {
-            $Result = "✅ **Pass**: All $($SafeLinksPolicies.Count) Safe Links policy/policies have click tracking disabled."
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: All $($SafeLinksPolicies.Count) Safe Links policy/policies have click tracking disabled.")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: $($FailedPolicies.Count) of $($SafeLinksPolicies.Count) Safe Links policy/policies have click tracking enabled:`n`n"
-            $Result += "| Policy Name | Track User Clicks |`n"
-            $Result += "| :---------- | :---------------- |`n"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: $($FailedPolicies.Count) of $($SafeLinksPolicies.Count) Safe Links policy/policies have click tracking enabled:`n`n")
+            $null = $Result.Append("| Policy Name | Track User Clicks |`n")
+            $null = $Result.Append("| :---------- | :---------------- |`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Name) | $($Policy.TrackUserClicks) |`n"
+                $null = $Result.Append("| $($Policy.Name) | $($Policy.TrackUserClicks) |`n")
             }
             $Status = 'Failed'
         }

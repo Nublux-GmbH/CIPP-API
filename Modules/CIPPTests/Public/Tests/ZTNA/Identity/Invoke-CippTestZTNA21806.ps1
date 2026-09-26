@@ -6,7 +6,7 @@ function Invoke-CippTestZTNA21806 {
     param($Tenant)
     #tested
     try {
-        $allCAPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ConditionalAccessPolicies'
+        $allCAPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ConditionalAccessPolicies'
 
         if (-not $allCAPolicies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ZTNA21806' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Secure the MFA registration (My Security Info) page' -UserImpact 'Low' -ImplementationEffort 'Medium' -Category 'Conditional Access'
@@ -33,15 +33,15 @@ function Invoke-CippTestZTNA21806 {
         $tableRows = ''
 
         if ($matchedPolicies.Count -gt 0) {
-            $mdInfo = "`n## $reportTitle`n`n"
-            $mdInfo += "| Policy Name | User Actions Targeted | Grant Controls Applied |`n"
-            $mdInfo += "| :---------- | :-------------------- | :--------------------- |`n"
+            $mdInfo = [System.Text.StringBuilder]::new("`n## $reportTitle`n`n")
+            $null = $mdInfo.Append("| Policy Name | User Actions Targeted | Grant Controls Applied |`n")
+            $null = $mdInfo.Append("| :---------- | :-------------------- | :--------------------- |`n")
 
             foreach ($policy in $matchedPolicies) {
-                $mdInfo += "| $($policy.displayName) | $($policy.conditions.applications.includeUserActions) | $($policy.grantControls.builtInControls -join ', ') |`n"
+                $null = $mdInfo.Append("| $($policy.displayName) | $($policy.conditions.applications.includeUserActions) | $($policy.grantControls.builtInControls -join ', ') |`n")
             }
         } else {
-            $mdInfo = 'No Conditional Access policies targeting security information registration.'
+            $mdInfo = [System.Text.StringBuilder]::new('No Conditional Access policies targeting security information registration.')
         }
 
         $testResultMarkdown = $testResultMarkdown + $mdInfo

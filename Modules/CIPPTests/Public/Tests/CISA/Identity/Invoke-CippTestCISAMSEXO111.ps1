@@ -16,7 +16,7 @@ function Invoke-CippTestCISAMSEXO111 {
     )
 
     try {
-        $PresetPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoPresetSecurityPolicy'
+        $PresetPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoPresetSecurityPolicy'
 
         if (-not $PresetPolicies) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoPresetSecurityPolicy cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Impersonation protection checks SHOULD be used' -UserImpact 'Low' -ImplementationEffort 'Medium' -Category 'Email Protection' -TestId 'CISAMSEXO111' -TenantFilter $Tenant
@@ -28,10 +28,10 @@ function Invoke-CippTestCISAMSEXO111 {
 
         $StandardATP = $PresetPolicies | Where-Object { $_.Identity -like '*Preset Security Policy*' -and $_.ImpersonationProtectionState -eq 'Enabled' }
 
-        $EnabledPolicies = @()
-        if ($StandardEOP) { $EnabledPolicies += 'Standard EOP' }
-        if ($StrictEOP) { $EnabledPolicies += 'Strict EOP' }
-        if ($StandardATP) { $EnabledPolicies += "$($StandardATP.Count) ATP policy/policies with impersonation protection" }
+        $EnabledPolicies = [System.Collections.Generic.List[string]]::new()
+        if ($StandardEOP) { $EnabledPolicies.Add('Standard EOP') }
+        if ($StrictEOP) { $EnabledPolicies.Add('Strict EOP') }
+        if ($StandardATP) { $EnabledPolicies.Add("$($StandardATP.Count) ATP policy/policies with impersonation protection") }
 
         if ($EnabledPolicies.Count -gt 0) {
             $Result = "✅ **Pass**: Preset security policies with impersonation protection are enabled:`n`n"

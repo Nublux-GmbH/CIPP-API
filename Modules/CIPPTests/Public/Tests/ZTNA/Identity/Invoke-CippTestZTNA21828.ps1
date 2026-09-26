@@ -6,7 +6,7 @@ function Invoke-CippTestZTNA21828 {
     param($Tenant)
     #Tested
     try {
-        $allCAPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ConditionalAccessPolicies'
+        $allCAPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ConditionalAccessPolicies'
 
         if (-not $allCAPolicies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ZTNA21828' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Authentication transfer is blocked' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Conditional Access'
@@ -32,14 +32,14 @@ function Invoke-CippTestZTNA21828 {
         $reportTitle = 'Conditional Access Policies targeting Authentication Transfer'
 
         if ($matchedPolicies.Count -gt 0) {
-            $mdInfo = "`n## $reportTitle`n`n"
-            $mdInfo += "| Policy Name | Policy ID | State | Created | Modified |`n"
-            $mdInfo += "| :---------- | :-------- | :---- | :------ | :------- |`n"
+            $mdInfo = [System.Text.StringBuilder]::new("`n## $reportTitle`n`n")
+            $null = $mdInfo.Append("| Policy Name | Policy ID | State | Created | Modified |`n")
+            $null = $mdInfo.Append("| :---------- | :-------- | :---- | :------ | :------- |`n")
 
             foreach ($policy in $matchedPolicies) {
                 $created = if ($policy.createdDateTime) { $policy.createdDateTime } else { 'N/A' }
                 $modified = if ($policy.modifiedDateTime) { $policy.modifiedDateTime } else { 'N/A' }
-                $mdInfo += "| $($policy.displayName) | $($policy.id) | $($policy.state) | $created | $modified |`n"
+                $null = $mdInfo.Append("| $($policy.displayName) | $($policy.id) | $($policy.state) | $created | $modified |`n")
             }
 
             $testResultMarkdown = $testResultMarkdown + $mdInfo

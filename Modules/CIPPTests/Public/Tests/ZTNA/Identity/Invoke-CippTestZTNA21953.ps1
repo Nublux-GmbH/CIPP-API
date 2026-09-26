@@ -19,7 +19,7 @@ function Invoke-CippTestZTNA21953 {
 
     try {
         # Get device registration policy from cache
-        $DeviceRegPolicy = New-CIPPDbRequest -TenantFilter $Tenant -Type 'DeviceRegistrationPolicy'
+        $DeviceRegPolicy = Get-CIPPTestData -TenantFilter $Tenant -Type 'DeviceRegistrationPolicy'
 
         if (-not $DeviceRegPolicy) {
             $TestParams = @{
@@ -44,11 +44,11 @@ function Invoke-CippTestZTNA21953 {
         $Status = if ($LapsEnabled) { 'Passed' } else { 'Failed' }
 
         if ($Status -eq 'Passed') {
-            $ResultMarkdown = "✅ **Pass**: LAPS is deployed. Your organization can automatically manage and rotate local administrator passwords on all Entra joined and hybrid Entra joined Windows devices.`n`n"
-            $ResultMarkdown += '[Learn more](https://entra.microsoft.com/#view/Microsoft_AAD_Devices/DevicesMenuBlade/~/DeviceSettings/menuId/)'
+            $ResultMarkdown = [System.Text.StringBuilder]::new("✅ **Pass**: LAPS is deployed. Your organization can automatically manage and rotate local administrator passwords on all Entra joined and hybrid Entra joined Windows devices.`n`n")
+            $null = $ResultMarkdown.Append('[Learn more](https://entra.microsoft.com/#view/Microsoft_AAD_Devices/DevicesMenuBlade/~/DeviceSettings/menuId/)')
         } else {
-            $ResultMarkdown = "❌ **Fail**: LAPS is not deployed. Local administrator passwords may be weak, shared, or unchanged, increasing security risk.`n`n"
-            $ResultMarkdown += '[Deploy LAPS](https://entra.microsoft.com/#view/Microsoft_AAD_Devices/DevicesMenuBlade/~/DeviceSettings/menuId/)'
+            $ResultMarkdown = [System.Text.StringBuilder]::new("❌ **Fail**: LAPS is not deployed. Local administrator passwords may be weak, shared, or unchanged, increasing security risk.`n`n")
+            $null = $ResultMarkdown.Append('[Deploy LAPS](https://entra.microsoft.com/#view/Microsoft_AAD_Devices/DevicesMenuBlade/~/DeviceSettings/menuId/)')
         }
 
         $TestParams = @{

@@ -25,7 +25,6 @@ function Invoke-ExecModifyCalPerms {
                 StatusCode = [HttpStatusCode]::BadRequest
                 Body       = @{'Results' = @('Username is required') }
             })
-        return
     }
 
     try {
@@ -43,7 +42,6 @@ function Invoke-ExecModifyCalPerms {
                 StatusCode = [HttpStatusCode]::NotFound
                 Body       = @{'Results' = @("Failed to get user ID: $($ErrorMessage.NormalizedError)") }
             })
-        return
     }
 
     $Results = [System.Collections.Generic.List[string]]::new()
@@ -87,7 +85,8 @@ function Invoke-ExecModifyCalPerms {
                     UserID                 = $UserId
                     folderName             = $FolderName
                     UserToGetPermissions   = $TargetUser
-                    LoggingName            = $TargetUser
+                    # TargetUser may be a recipient id, so log the display name the caller saw
+                    LoggingName            = $Permission.DisplayName ?? $TargetUser
                     Permissions            = $PermissionLevel
                     CanViewPrivateItems    = $CanViewPrivateItems
                     SendNotificationToUser = $SendNotificationToUser
@@ -105,7 +104,7 @@ function Invoke-ExecModifyCalPerms {
     }
 
     if ($Results.Count -eq 0) {
-        Write-LogMessage -headers $Headers -API $APIName -message 'No results were generated from the operation' -sev 'Warn'
+        Write-LogMessage -headers $Headers -API $APIName -message 'No results were generated from the operation' -sev 'Warning'
         $Results.Add('No results were generated from the operation. Please check the logs for more details.')
         $HasErrors = $true
     }

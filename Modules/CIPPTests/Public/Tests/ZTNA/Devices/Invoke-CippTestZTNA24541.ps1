@@ -8,7 +8,7 @@ function Invoke-CippTestZTNA24541 {
     $TestId = 'ZTNA24541'
     #Tested - Device
     try {
-        $IntunePolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'IntuneDeviceCompliancePolicies'
+        $IntunePolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'IntuneDeviceCompliancePolicies'
 
         if (-not $IntunePolicies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId $TestId -TestType 'Devices' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Compliance policies protect Windows devices' -UserImpact 'Medium' -ImplementationEffort 'Low' -Category 'Tenant'
@@ -23,18 +23,18 @@ function Invoke-CippTestZTNA24541 {
         $Passed = $AssignedPolicies.Count -gt 0
 
         if ($Passed) {
-            $ResultMarkdown = "✅ At least one Windows compliance policy exists and is assigned.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("✅ At least one Windows compliance policy exists and is assigned.`n`n")
         } else {
-            $ResultMarkdown = "❌ No Windows compliance policy exists or none are assigned.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("❌ No Windows compliance policy exists or none are assigned.`n`n")
         }
 
-        $ResultMarkdown += "## Windows Compliance Policies`n`n"
-        $ResultMarkdown += "| Policy Name | Assigned |`n"
-        $ResultMarkdown += "| :---------- | :------- |`n"
+        $null = $ResultMarkdown.Append("## Windows Compliance Policies`n`n")
+        $null = $ResultMarkdown.Append("| Policy Name | Assigned |`n")
+        $null = $ResultMarkdown.Append("| :---------- | :------- |`n")
 
         foreach ($policy in $WindowsPolicies) {
             $assigned = if ($policy.assignments -and $policy.assignments.Count -gt 0) { '✅ Yes' } else { '❌ No' }
-            $ResultMarkdown += "| $($policy.displayName) | $assigned |`n"
+            $null = $ResultMarkdown.Append("| $($policy.displayName) | $assigned |`n")
         }
 
         $Status = if ($Passed) { 'Passed' } else { 'Failed' }

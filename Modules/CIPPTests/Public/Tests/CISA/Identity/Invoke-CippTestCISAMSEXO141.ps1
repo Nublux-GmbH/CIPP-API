@@ -16,7 +16,7 @@ function Invoke-CippTestCISAMSEXO141 {
     )
 
     try {
-        $SpamPolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
+        $SpamPolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
 
         if (-not $SpamPolicies) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoHostedContentFilterPolicy cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'High confidence spam SHALL be quarantined' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO141' -TenantFilter $Tenant
@@ -26,14 +26,14 @@ function Invoke-CippTestCISAMSEXO141 {
         $FailedPolicies = $SpamPolicies | Where-Object { $_.HighConfidenceSpamAction -ne 'Quarantine' }
 
         if ($FailedPolicies.Count -eq 0) {
-            $Result = "✅ **Pass**: All $($SpamPolicies.Count) anti-spam policy/policies quarantine high confidence spam."
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: All $($SpamPolicies.Count) anti-spam policy/policies quarantine high confidence spam.")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: $($FailedPolicies.Count) of $($SpamPolicies.Count) anti-spam policy/policies do not quarantine high confidence spam:`n`n"
-            $Result += "| Policy Name | Current Action | Expected |`n"
-            $Result += "| :---------- | :------------- | :------- |`n"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: $($FailedPolicies.Count) of $($SpamPolicies.Count) anti-spam policy/policies do not quarantine high confidence spam:`n`n")
+            $null = $Result.Append("| Policy Name | Current Action | Expected |`n")
+            $null = $Result.Append("| :---------- | :------------- | :------- |`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.'Policy Name') | $($Policy.'Current Action') | $($Policy.Expected) |`n"
+                $null = $Result.Append("| $($Policy.Name) | $($Policy.HighConfidenceSpamAction) | Quarantine |`n")
             }
             $Status = 'Failed'
         }

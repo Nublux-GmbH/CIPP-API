@@ -35,31 +35,46 @@ function Invoke-ExecCAExclusion {
             throw "Policy with ID $PolicyId not found in tenant $TenantFilter."
         }
 
-        $SecurityGroups = New-GraphGetRequest -uri "https://graph.microsoft.com/beta/groups?`$select=id,displayName&`$filter=securityEnabled eq true and mailEnabled eq false&`$count=true" -tenantid $TenantFilter
-        $VacationGroup = $SecurityGroups | Where-Object { $_.displayName -contains "Vacation Exclusion - $($Policy.displayName)" }
+        $GroupNamePrefix = 'Vacation Exclusion - '
+        $VacationGroupName = "$GroupNamePrefix$($Policy.displayName)"
+        if ($VacationGroupName.Length -gt 120) {
+            $PolicyIdSuffix = " [$($Policy.id.Substring(0, 8))]"
+            $MaxNameLength = 120 - $GroupNamePrefix.Length - $PolicyIdSuffix.Length
+            $VacationGroupName = '{0}{1}{2}' -f $GroupNamePrefix, $Policy.displayName.Substring(0, $MaxNameLength).TrimEnd(), $PolicyIdSuffix
+        }
 
-        if (!$VacationGroup) {
-            Write-Information "Creating vacation group: Vacation Exclusion - $($Policy.displayName)"
+        $EscapedGroupName = $VacationGroupName -replace "'", "''"
+        $GroupFilter = [System.Uri]::EscapeDataString("displayName eq '$EscapedGroupName' and mailEnabled eq false and securityEnabled eq true")
+        $VacationGroups = @(New-GraphGetRequest -uri "https://graph.microsoft.com/beta/groups?`$select=id,displayName&`$count=true&`$filter=$GroupFilter" -tenantid $TenantFilter -ComplexFilter)
+
+        $DuplicateGroupWarning = $null
+        if ($VacationGroups.Count -eq 0) {
+            Write-Information "Creating vacation group: $VacationGroupName"
             $Guid = [guid]::NewGuid().ToString()
             $GroupObject = @{
                 groupType       = 'generic'
-                displayName     = "Vacation Exclusion - $($Policy.displayName)"
+                displayName     = $VacationGroupName
                 username        = "vacation$Guid"
                 securityEnabled = $true
             }
             $NewGroup = New-CIPPGroup -GroupObject $GroupObject -TenantFilter $TenantFilter -APIName 'Invoke-ExecCAExclusion'
             $GroupId = $NewGroup.GroupId
         } else {
+            $VacationGroup = $VacationGroups | Select-Object -First 1
+            if ($VacationGroups.Count -gt 1) {
+                $DuplicateGroupWarning = "Failed to find a unique vacation group for policy '$($Policy.displayName)'. Multiple groups found, using group $($VacationGroup.id)."
+                Write-Warning "Multiple vacation groups found for policy '$($Policy.displayName)'. Using group $($VacationGroup.id)."
+            }
             Write-Information "Using existing vacation group: $($VacationGroup.displayName)"
             $GroupId = $VacationGroup.id
         }
 
         if ($Policy.conditions.users.excludeGroups -notcontains $GroupId) {
-            Set-CIPPCAExclusion -TenantFilter $TenantFilter -ExclusionType 'Add' -PolicyId $PolicyId -Groups @{ value = @($GroupId); addedFields = @{ displayName = @("Vacation Exclusion - $($Policy.displayName)") } } -Headers $Headers
+            Set-CIPPCAExclusion -TenantFilter $TenantFilter -ExclusionType 'Add' -PolicyId $PolicyId -Groups @{ value = @($GroupId); addedFields = @{ displayName = @($VacationGroupName) } } -Headers $Headers
         }
 
         $PolicyName = $Policy.displayName
-        if ($Request.Body.vacation -eq 'true') {
+        if ($Request.Body.vacation -eq $true) {
             $StartDate = $Request.Body.StartDate
             $EndDate = $Request.Body.EndDate
             # Detect if policy targets specific named locations (GUIDs) and user requested audit log exclusion
@@ -123,7 +138,63 @@ function Invoke-ExecCAExclusion {
                 }
                 Add-CIPPScheduledTask -Task $AuditRemoveTask -hidden $true
             }
-            $body = @{ Results = "Successfully added vacation mode schedule for $Username." }
+            $Results = @("Successfully added vacation mode schedule for $Username on policy '$PolicyName'.")
+
+            # Optional: temporary travel policy that only allows sign-ins from the travel destination
+            $TravelCountries = @($Request.Body.TravelCountries.value | Where-Object { $_ })
+            if ($Request.Body.CreateTravelPolicy -eq $true -and $TravelCountries.Count -gt 0) {
+                $TravelUsers = @($Users.addedFields.userPrincipalName ?? $Users.value ?? $Users ?? $UserID)
+                $StartLabel = [DateTimeOffset]::FromUnixTimeSeconds([int64]$StartDate).ToString('yyyy-MM-dd')
+                $EndLabel = [DateTimeOffset]::FromUnixTimeSeconds([int64]$EndDate).ToString('yyyy-MM-dd')
+                $UserLabel = $TravelUsers -join ', '
+                $TravelPolicyName = "Travel Policy $UserLabel - $StartLabel - $EndLabel"
+                if ($TravelPolicyName.Length -gt 256) {
+                    $TravelPolicyName = "Travel Policy $($TravelUsers.Count) users - $StartLabel - $EndLabel"
+                }
+
+                $TravelCreateTask = [pscustomobject]@{
+                    TenantFilter  = $TenantFilter
+                    Name          = "Create Travel Policy Vacation Mode: $TravelPolicyName"
+                    Command       = @{
+                        value = 'New-CIPPTravelPolicy'
+                        label = 'New-CIPPTravelPolicy'
+                    }
+                    Parameters    = [pscustomobject]@{
+                        Users      = $TravelUsers
+                        Countries  = $TravelCountries
+                        PolicyName = $TravelPolicyName
+                    }
+                    ScheduledTime = $StartDate
+                    PostExecution = $Request.Body.postExecution
+                    Reference     = $Request.Body.reference
+                }
+                Add-CIPPScheduledTask -Task $TravelCreateTask -hidden $false
+
+                $TravelRemoveTask = [pscustomobject]@{
+                    TenantFilter  = $TenantFilter
+                    Name          = "Remove Travel Policy Vacation Mode: $TravelPolicyName"
+                    Command       = @{
+                        value = 'Remove-CIPPTravelPolicy'
+                        label = 'Remove-CIPPTravelPolicy'
+                    }
+                    Parameters    = [pscustomobject]@{
+                        PolicyName = $TravelPolicyName
+                    }
+                    ScheduledTime = $EndDate
+                    PostExecution = $Request.Body.postExecution
+                    Reference     = $Request.Body.reference
+                }
+                Add-CIPPScheduledTask -Task $TravelRemoveTask -hidden $false
+                $TravelResult = "Successfully scheduled temporary travel policy '$TravelPolicyName' restricting sign-ins to $($TravelCountries -join ', '). The policy and named location will be removed at the end date."
+                Write-LogMessage -headers $Headers -API 'Invoke-ExecCAExclusion' -message $TravelResult -Sev 'Info' -tenant $TenantFilter
+                $Results += $TravelResult
+            }
+
+            if ($DuplicateGroupWarning) {
+                $Results += $DuplicateGroupWarning
+            }
+            Write-LogMessage -headers $Headers -API 'Invoke-ExecCAExclusion' -message "Successfully added vacation mode schedule for $Username on policy '$PolicyName'." -Sev 'Info' -tenant $TenantFilter
+            $body = @{ Results = $Results }
         } else {
             $Parameters = @{
                 ExclusionType = $ExclusionType
@@ -140,7 +211,12 @@ function Invoke-ExecCAExclusion {
     } catch {
         Write-Warning "Failed to perform exclusion for $Username : $($_.Exception.Message)"
         Write-Information $_.InvocationInfo.PositionMessage
-        $body = @{ Results = "Failed to perform exclusion for $Username : $($_.Exception.Message)" }
+        $PolicyLabel = if ($PolicyName) { " on policy '$PolicyName'" } else { '' }
+        $Results = @("Failed to perform exclusion for $Username${PolicyLabel}: $($_.Exception.Message)")
+        if ($DuplicateGroupWarning) {
+            $Results += $DuplicateGroupWarning
+        }
+        $body = @{ Results = $Results }
         Write-LogMessage -headers $Headers -API 'Invoke-ExecCAExclusion' -message "Failed to perform exclusion for $Username : $_" -Sev 'Error' -tenant $TenantFilter -LogData (Get-CippException -Exception $_)
     }
 

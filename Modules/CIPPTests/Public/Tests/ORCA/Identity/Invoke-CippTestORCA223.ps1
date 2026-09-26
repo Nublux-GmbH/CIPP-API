@@ -6,7 +6,7 @@ function Invoke-CippTestORCA223 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA223' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'User impersonation action set to Quarantine' -UserImpact 'Medium' -ImplementationEffort 'Low' -Category 'Anti-Phish'
@@ -26,16 +26,16 @@ function Invoke-CippTestORCA223 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All anti-phishing policies have User Impersonation action set to Quarantine.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All anti-phishing policies have User Impersonation action set to Quarantine.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-phishing policies do not have User Impersonation action set to Quarantine.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Targeted User Protection Action |`n"
-            $Result += "|------------|--------------------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-phishing policies do not have User Impersonation action set to Quarantine.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Targeted User Protection Action |`n")
+            $null = $Result.Append("|------------|--------------------------------|`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Identity) | $($Policy.TargetedUserProtectionAction) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.TargetedUserProtectionAction) |`n")
             }
         }
 

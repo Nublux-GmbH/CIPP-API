@@ -6,7 +6,7 @@ function Invoke-CippTestZTNA21877 {
     param($Tenant)
     #Tested
     try {
-        $Guests = New-CIPPDbRequest -TenantFilter $Tenant -Type 'Guests'
+        $Guests = Get-CIPPTestData -TenantFilter $Tenant -Type 'Guests'
         if (-not $Guests) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ZTNA21877' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Medium' -Name 'All guests have a sponsor' -UserImpact 'Medium' -ImplementationEffort 'Medium' -Category 'Application management'
             return
@@ -25,27 +25,26 @@ function Invoke-CippTestZTNA21877 {
         } else {
             $Status = 'Failed'
 
-            $ResultLines = @(
-                "Found $($GuestsWithoutSponsors.Count) guest user(s) without sponsors out of $($Guests.Count) total guests."
-                ''
-                "**Total guests:** $($Guests.Count)"
-                "**Guests without sponsors:** $($GuestsWithoutSponsors.Count)"
-                "**Guests with sponsors:** $($Guests.Count - $GuestsWithoutSponsors.Count)"
-                ''
-                '**Top 10 guests without sponsors:**'
-            )
+            $ResultLines = [System.Collections.Generic.List[string]]::new()
+            $ResultLines.Add("Found $($GuestsWithoutSponsors.Count) guest user(s) without sponsors out of $($Guests.Count) total guests.")
+            $ResultLines.Add('')
+            $ResultLines.Add("**Total guests:** $($Guests.Count)")
+            $ResultLines.Add("**Guests without sponsors:** $($GuestsWithoutSponsors.Count)")
+            $ResultLines.Add("**Guests with sponsors:** $($Guests.Count - $GuestsWithoutSponsors.Count)")
+            $ResultLines.Add('')
+            $ResultLines.Add('**Top 10 guests without sponsors:**')
 
             $Top10Guests = $GuestsWithoutSponsors | Select-Object -First 10
             foreach ($Guest in $Top10Guests) {
-                $ResultLines += "- $($Guest.displayName) ($($Guest.userPrincipalName))"
+                $ResultLines.Add("- $($Guest.displayName) ($($Guest.userPrincipalName))")
             }
 
             if ($GuestsWithoutSponsors.Count -gt 10) {
-                $ResultLines += "- ... and $($GuestsWithoutSponsors.Count - 10) more guest(s)"
+                $ResultLines.Add("- ... and $($GuestsWithoutSponsors.Count - 10) more guest(s)")
             }
 
-            $ResultLines += ''
-            $ResultLines += '**Recommendation:** Assign sponsors to all guest accounts for better accountability and lifecycle management.'
+            $ResultLines.Add('')
+            $ResultLines.Add('**Recommendation:** Assign sponsors to all guest accounts for better accountability and lifecycle management.')
 
             $Result = $ResultLines -join "`n"
         }

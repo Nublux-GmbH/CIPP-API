@@ -6,8 +6,8 @@ function Invoke-CippTestORCA118_3 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
-        $AcceptedDomains = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoHostedContentFilterPolicy'
+        $AcceptedDomains = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA118_3' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Own domains not allow listed in Anti-Spam' -UserImpact 'High' -ImplementationEffort 'Low' -Category 'Anti-Spam'
@@ -44,17 +44,17 @@ function Invoke-CippTestORCA118_3 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "No anti-spam policies have own domains in the allow list.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("No anti-spam policies have own domains in the allow list.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-spam policies have own domains in the allow list.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Own Domains in Allow List |`n"
-            $Result += "|------------|---------------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-spam policies have own domains in the allow list.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Own Domains in Allow List |`n")
+            $null = $Result.Append("|------------|---------------------------|`n")
             foreach ($Policy in $FailedPolicies) {
                 $OwnDomainsInList = $Policy.AllowedSenderDomains | Where-Object { $OwnDomains -contains $_ }
-                $Result += "| $($Policy.Identity) | $($OwnDomainsInList -join ', ') |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($OwnDomainsInList -join ', ') |`n")
             }
         }
 

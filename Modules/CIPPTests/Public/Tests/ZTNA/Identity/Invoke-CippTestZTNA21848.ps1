@@ -9,7 +9,7 @@ function Invoke-CippTestZTNA21848 {
     #Tested
     try {
         # Get password protection settings from Settings cache
-        $Settings = New-CIPPDbRequest -TenantFilter $Tenant -Type 'Settings'
+        $Settings = Get-CIPPTestData -TenantFilter $Tenant -Type 'Settings'
         $PasswordProtectionSettings = $Settings | Where-Object { $_.templateId -eq '5cf42378-d67d-4f36-ba46-e8b86229381d' }
 
         if (-not $PasswordProtectionSettings) {
@@ -46,15 +46,15 @@ function Invoke-CippTestZTNA21848 {
         }
 
         if ($Passed -eq 'Passed') {
-            $ResultMarkdown = "✅ Custom banned passwords are properly configured with organization-specific terms.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("✅ Custom banned passwords are properly configured with organization-specific terms.`n`n")
         } else {
-            $ResultMarkdown = "❌ Custom banned passwords are not enabled or lack organization-specific terms.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("❌ Custom banned passwords are not enabled or lack organization-specific terms.`n`n")
         }
 
-        $ResultMarkdown += "## [Password protection settings]($PortalLink)`n`n"
-        $ResultMarkdown += "| Enforce custom list | Custom banned password list | Number of terms |`n"
-        $ResultMarkdown += "| :------------------ | :-------------------------- | :-------------- |`n"
-        $ResultMarkdown += "| $Enforced | $($DisplayList -join ', ') | $($BannedPasswordArray.Count) |`n"
+        $null = $ResultMarkdown.Append("## [Password protection settings]($PortalLink)`n`n")
+        $null = $ResultMarkdown.Append("| Enforce custom list | Custom banned password list | Number of terms |`n")
+        $null = $ResultMarkdown.Append("| :------------------ | :-------------------------- | :-------------- |`n")
+        $null = $ResultMarkdown.Append("| $Enforced | $($DisplayList -join ', ') | $($BannedPasswordArray.Count) |`n")
 
         Add-CippTestResult -TenantFilter $Tenant -TestId $TestId -TestType 'Identity' -Status $Passed -ResultMarkdown $ResultMarkdown -Risk 'Medium' -Name 'Add organizational terms to the banned password list' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Credential management'
 

@@ -13,8 +13,8 @@ function Invoke-CippTestZTNA21815 {
 
     try {
         $PrivilegedRoles = Get-CippDbRole -TenantFilter $Tenant -IncludePrivilegedRoles
-        $RoleAssignmentScheduleInstances = New-CIPPDbRequest -TenantFilter $Tenant -Type 'RoleAssignmentScheduleInstances'
-        $Users = New-CIPPDbRequest -TenantFilter $Tenant -Type 'Users'
+        $RoleAssignmentScheduleInstances = Get-CIPPTestData -TenantFilter $Tenant -Type 'RoleAssignmentScheduleInstances'
+        $Users = Get-CIPPTestData -TenantFilter $Tenant -Type 'Users'
 
         $PermanentAssignments = [System.Collections.Generic.List[object]]::new()
 
@@ -41,17 +41,17 @@ function Invoke-CippTestZTNA21815 {
 
         if ($PermanentAssignments.Count -eq 0) {
             $Passed = $true
-            $ResultMarkdown = 'No privileged users have permanent role assignments.'
+            $ResultMarkdown = [System.Text.StringBuilder]::new('No privileged users have permanent role assignments.')
         } else {
             $Passed = $false
-            $ResultMarkdown = "Privileged users with permanent role assignments were found.`n`n"
-            $ResultMarkdown += "## Privileged users with permanent role assignments`n`n"
-            $ResultMarkdown += "| User | UPN | Role Name | Assignment Type |`n"
-            $ResultMarkdown += "| :--- | :-- | :-------- | :-------------- |`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("Privileged users with permanent role assignments were found.`n`n")
+            $null = $ResultMarkdown.Append("## Privileged users with permanent role assignments`n`n")
+            $null = $ResultMarkdown.Append("| User | UPN | Role Name | Assignment Type |`n")
+            $null = $ResultMarkdown.Append("| :--- | :-- | :-------- | :-------------- |`n")
 
             foreach ($Result in $PermanentAssignments) {
                 $PortalLink = "https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserProfileMenuBlade/~/AdministrativeRole/userId/$($Result.PrincipalId)/hidePreviewBanner~/true"
-                $ResultMarkdown += "| [$($Result.PrincipalDisplayName)]($PortalLink) | $($Result.UserPrincipalName) | $($Result.RoleDisplayName) | $($Result.PrivilegeType) |`n"
+                $null = $ResultMarkdown.Append("| [$($Result.PrincipalDisplayName)]($PortalLink) | $($Result.UserPrincipalName) | $($Result.RoleDisplayName) | $($Result.PrivilegeType) |`n")
             }
         }
 

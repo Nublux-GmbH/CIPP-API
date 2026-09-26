@@ -45,16 +45,23 @@ function Invoke-ExecAuditLogSearch {
                 }
             } else {
                 $Existing.CippStatus = 'Pending'
+                $Entity = $Existing
             }
 
             Add-CIPPAzDataTableEntity @Table -Entity $Entity -Force | Out-Null
 
+            # Bridge into the V2 AuditLogCoverage ledger so the pipeline picks it up automatically
+            # (re-queuing resets it to State 'Created' to reprocess).
+            $ManualStatus = if ($Search) { [string]$Search.status } else { '' }
+            Add-CippAuditLogCoverageManualEntry -TenantFilter $TenantFilter -SearchId $SearchId -StartTime $Entity.StartTime -EndTime $Entity.EndTime -SearchStatus $ManualStatus
+
+            $DisplayName = $Entity.DisplayName
             Write-LogMessage -headers $Headers -API $APIName -message "Queued search for processing: $($Search.displayName)" -Sev 'Info' -tenant $TenantFilter
 
             return ([HttpResponseContext]@{
                     StatusCode = [HttpStatusCode]::OK
                     Body       = @{
-                        resultText = "Search '$($Search.displayName)' queued for processing."
+                        resultText = "Search '$DisplayName' queued for processing."
                         state      = 'success'
                     } | ConvertTo-Json -Depth 10 -Compress
                 })
