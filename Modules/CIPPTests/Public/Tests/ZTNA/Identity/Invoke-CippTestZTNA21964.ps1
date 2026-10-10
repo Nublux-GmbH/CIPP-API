@@ -8,7 +8,7 @@ function Invoke-CippTestZTNA21964 {
     $TestId = 'ZTNA21964'
     #Tested
     try {
-        $AuthStrengths = New-CIPPDbRequest -TenantFilter $Tenant -Type 'AuthenticationStrengths'
+        $AuthStrengths = Get-CIPPTestData -TenantFilter $Tenant -Type 'AuthenticationStrengths'
 
         if (-not $AuthStrengths) {
             Add-CippTestResult -TenantFilter $Tenant -TestId $TestId -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Enable protected actions to secure Conditional Access policy creation and changes' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Access control'
@@ -18,16 +18,16 @@ function Invoke-CippTestZTNA21964 {
         $BuiltInStrengths = @($AuthStrengths | Where-Object { $_.policyType -eq 'builtIn' })
         $CustomStrengths = @($AuthStrengths | Where-Object { $_.policyType -eq 'custom' })
 
-        $ResultMarkdown = "## Authentication Strength Policies`n`n"
-        $ResultMarkdown += "Found $($AuthStrengths.Count) authentication strength policies ($($BuiltInStrengths.Count) built-in, $($CustomStrengths.Count) custom).`n`n"
+        $ResultMarkdown = [System.Text.StringBuilder]::new("## Authentication Strength Policies`n`n")
+        $null = $ResultMarkdown.Append("Found $($AuthStrengths.Count) authentication strength policies ($($BuiltInStrengths.Count) built-in, $($CustomStrengths.Count) custom).`n`n")
 
         if ($CustomStrengths.Count -gt 0) {
-            $ResultMarkdown += "### Custom Authentication Strengths`n`n"
-            $ResultMarkdown += "| Name | Combinations |`n"
-            $ResultMarkdown += "| :--- | :---------- |`n"
+            $null = $ResultMarkdown.Append("### Custom Authentication Strengths`n`n")
+            $null = $ResultMarkdown.Append("| Name | Combinations |`n")
+            $null = $ResultMarkdown.Append("| :--- | :---------- |`n")
             foreach ($strength in $CustomStrengths) {
                 $combinations = if ($strength.allowedCombinations) { $strength.allowedCombinations.Count } else { 0 }
-                $ResultMarkdown += "| $($strength.displayName) | $combinations methods |`n"
+                $null = $ResultMarkdown.Append("| $($strength.displayName) | $combinations methods |`n")
             }
         }
 

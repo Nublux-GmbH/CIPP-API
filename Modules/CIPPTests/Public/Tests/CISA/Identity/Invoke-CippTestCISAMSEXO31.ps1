@@ -16,8 +16,8 @@ function Invoke-CippTestCISAMSEXO31 {
     )
 
     try {
-        $DkimConfigs = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoDkimSigningConfig'
-        $AcceptedDomains = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
+        $DkimConfigs = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoDkimSigningConfig'
+        $AcceptedDomains = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
 
         if (-not $DkimConfigs -or -not $AcceptedDomains) {
             Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'Required cache (ExoDkimSigningConfig or ExoAcceptedDomains) not found. Please refresh the cache for this tenant.' -Risk 'Medium' -Name 'DKIM SHOULD be enabled for all domains' -UserImpact 'Low' -ImplementationEffort 'Medium' -Category 'Email Authentication' -TestId 'CISAMSEXO31' -TenantFilter $Tenant
@@ -47,14 +47,14 @@ function Invoke-CippTestCISAMSEXO31 {
         }
 
         if ($FailedDomains.Count -eq 0) {
-            $Result = "✅ **Pass**: DKIM is enabled for all $($SendingDomains.Count) sending domain(s)."
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: DKIM is enabled for all $($SendingDomains.Count) sending domain(s).")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: $($FailedDomains.Count) of $($SendingDomains.Count) domain(s) do not have DKIM properly enabled:`n`n"
-            $Result += "| Domain | DKIM Enabled | Status |`n"
-            $Result += "| :----- | :----------- | :----- |`n"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: $($FailedDomains.Count) of $($SendingDomains.Count) domain(s) do not have DKIM properly enabled:`n`n")
+            $null = $Result.Append("| Domain | DKIM Enabled | Status |`n")
+            $null = $Result.Append("| :----- | :----------- | :----- |`n")
             foreach ($Domain in $FailedDomains) {
-                $Result += "| $($Domain.Domain) | $($Domain.'DKIM Enabled') | $($Domain.Status) |`n"
+                $null = $Result.Append("| $($Domain.Domain) | $($Domain.'DKIM Enabled') | $($Domain.Status) |`n")
             }
             $Status = 'Failed'
         }

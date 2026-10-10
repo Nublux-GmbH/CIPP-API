@@ -6,7 +6,7 @@ function Invoke-CippTestGenericTest001 {
     param($Tenant)
 
     try {
-        $LicenseData = New-CIPPDbRequest -TenantFilter $Tenant -Type 'LicenseOverview'
+        $LicenseData = Get-CIPPTestData -TenantFilter $Tenant -Type 'LicenseOverview'
 
         if (-not $LicenseData) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'GenericTest001' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No license data found in the reporting database. Please sync the License Overview cache first.' -Risk 'Informational' -Name 'Tenant License Overview' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Tenant Overview'
@@ -18,10 +18,10 @@ function Invoke-CippTestGenericTest001 {
         $TotalUsed = ($Licenses | ForEach-Object { [int]$_.CountUsed } | Measure-Object -Sum).Sum
         $OverallUtilization = if ($TotalLicenses -gt 0) { [math]::Round(($TotalUsed / $TotalLicenses) * 100, 1) } else { 0 }
 
-        $Result = "**Total Licenses:** $TotalLicenses | **In Use:** $TotalUsed | **Overall Utilization:** $OverallUtilization%`n`n"
+        $Result = [System.Text.StringBuilder]::new("**Total Licenses:** $TotalLicenses | **In Use:** $TotalUsed | **Overall Utilization:** $OverallUtilization%`n`n")
 
-        $Result += "| License | In Use | Total | Available | Utilization |`n"
-        $Result += "|---------|--------|-------|-----------|-------------|`n"
+        $null = $Result.Append("| License | In Use | Total | Available | Utilization |`n")
+        $null = $Result.Append("|---------|--------|-------|-----------|-------------|`n")
 
         foreach ($License in ($Licenses | Sort-Object { [int]$_.TotalLicenses } -Descending)) {
             $LicName = $License.License
@@ -30,7 +30,7 @@ function Invoke-CippTestGenericTest001 {
             $Available = $Total - $Used
             $Util = if ($Total -gt 0) { [math]::Round(($Used / $Total) * 100, 0) } else { 0 }
             $UtilIcon = if ($Util -ge 90) { "🟢 $Util%" } elseif ($Util -ge 70) { "🟡 $Util%" } else { "🟢 $Util%" }
-            $Result += "| $LicName | $Used | $Total | $Available | $UtilIcon |`n"
+            $null = $Result.Append("| $LicName | $Used | $Total | $Available | $UtilIcon |`n")
         }
 
 

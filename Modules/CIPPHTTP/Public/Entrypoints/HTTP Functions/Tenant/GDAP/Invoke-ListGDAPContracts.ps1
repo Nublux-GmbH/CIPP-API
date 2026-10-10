@@ -4,6 +4,8 @@ function Invoke-ListGDAPContracts {
         Entrypoint,AnyTenant
     .ROLE
         Tenant.Relationship.Read
+    .DESCRIPTION
+        Lists Microsoft partner contracts (customer tenant relationships) from the Graph API.
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
@@ -13,7 +15,7 @@ function Invoke-ListGDAPContracts {
     $Uri = "https://graph.microsoft.com/beta/contracts?`$top=$Top"
 
     try {
-        $Results = New-GraphGetRequest -Uri $Uri -tenantid $env:TenantID -NoAuthCheck $true -NoPagination $true -ComplexFilter
+        $Results = New-GraphGetRequest -Uri $Uri -tenantid $env:TenantID -NoAuthCheck $true -ComplexFilter
 
         $Body = @{
             Results  = @($Results)
@@ -23,7 +25,7 @@ function Invoke-ListGDAPContracts {
         $ErrorMessage = Get-CippException -Exception $_
         Write-LogMessage -API $APIName -tenant $env:TenantID -headers $Request.Headers -message "Failed to list GDAP contracts: $($ErrorMessage.NormalizedError)" -sev Error -LogData $ErrorMessage
         $Body = @{ Results = @(); Error = $ErrorMessage.NormalizedError }
-        $StatusCode = [HttpStatusCode]::BadRequest
+        $StatusCode = [HttpStatusCode]::InternalServerError
     }
 
     return ([HttpResponseContext]@{

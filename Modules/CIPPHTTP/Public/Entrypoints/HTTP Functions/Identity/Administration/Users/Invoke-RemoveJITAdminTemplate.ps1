@@ -24,13 +24,13 @@ function Invoke-RemoveJITAdminTemplate {
         $Template = Get-CIPPAzDataTableEntity @Table -Filter $Filter
 
         if ($Template) {
-            Remove-AzDataTableEntity @Table -Entity $Template
+            Remove-CIPPAzDataTableEntity @Table -Entity $Template
             $Result = "Successfully deleted JIT Admin Template with ID: $ID"
             Write-LogMessage -headers $Headers -API $APIName -message $Result -Sev 'Info'
             $StatusCode = [HttpStatusCode]::OK
         } else {
             $Result = "JIT Admin Template with ID $ID not found"
-            Write-LogMessage -headers $Headers -API $APIName -message $Result -sev 'Warn'
+            Write-LogMessage -headers $Headers -API $APIName -message $Result -sev 'Warning'
             $StatusCode = [HttpStatusCode]::NotFound
         }
 

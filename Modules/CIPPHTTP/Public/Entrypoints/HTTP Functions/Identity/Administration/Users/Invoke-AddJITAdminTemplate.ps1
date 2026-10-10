@@ -18,9 +18,11 @@ function Invoke-AddJITAdminTemplate {
 
         # Validate required fields
         if ([string]::IsNullOrWhiteSpace($TenantFilter)) {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw 'tenantFilter is required'
         }
         if ([string]::IsNullOrWhiteSpace($TemplateName)) {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw 'templateName is required'
         }
 
@@ -42,6 +44,7 @@ function Invoke-AddJITAdminTemplate {
         }
 
         if ($ExistingNames) {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw "A template with name '$TemplateName' already exists for tenant '$TenantFilter'"
         }
 
@@ -61,7 +64,7 @@ function Invoke-AddJITAdminTemplate {
                         Write-LogMessage -headers $Headers -API $APIName -message "Unset default flag for existing template: $($data.templateName)" -Sev 'Info'
                     }
                 } catch {
-                    Write-LogMessage -headers $Headers -API $APIName -message "Failed to update existing template: $($_.Exception.Message)" -sev 'Warn'
+                    Write-LogMessage -headers $Headers -API $APIName -message "Failed to update existing template: $($_.Exception.Message)" -sev 'Warning'
                 }
             }
         }
@@ -69,6 +72,7 @@ function Invoke-AddJITAdminTemplate {
         # Validate user action fields
         $DefaultUserAction = $Request.Body.defaultUserAction
         if ($TenantFilter -eq 'AllTenants' -and $DefaultUserAction -eq 'select') {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw 'defaultUserAction cannot be "select" when tenantFilter is "AllTenants"'
         }
 
@@ -78,11 +82,17 @@ function Invoke-AddJITAdminTemplate {
             templateName                = $TemplateName
             defaultForTenant            = $DefaultForTenant
             defaultRoles                = $Request.Body.defaultRoles
+            defaultGroups               = $Request.Body.defaultGroups
+            defaultUseRoles             = [bool]$Request.Body.defaultUseRoles
+            defaultUseGroups            = [bool]$Request.Body.defaultUseGroups
             defaultDuration             = $Request.Body.defaultDuration
             defaultExpireAction         = $Request.Body.defaultExpireAction
             defaultNotificationActions  = $Request.Body.defaultNotificationActions
             generateTAPByDefault        = [bool]$Request.Body.generateTAPByDefault
             reasonTemplate              = $Request.Body.reasonTemplate
+            defaultVacationMode         = [bool]$Request.Body.defaultVacationMode
+            defaultVacationCAPolicy     = $Request.Body.defaultVacationCAPolicy
+            defaultVacationExcludeAuditAlerts = [bool]$Request.Body.defaultVacationExcludeAuditAlerts
             createdBy                   = $UserDetails
             createdDate                 = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         }
@@ -90,6 +100,11 @@ function Invoke-AddJITAdminTemplate {
         # Add defaultUserAction if provided
         if (![string]::IsNullOrWhiteSpace($DefaultUserAction)) {
             $TemplateObject.defaultUserAction = $DefaultUserAction
+        }
+
+        # Add existing user selection when "select" action is specified
+        if ($DefaultUserAction -eq 'select' -and $Request.Body.defaultExistingUser) {
+            $TemplateObject.defaultExistingUser = $Request.Body.defaultExistingUser
         }
 
         # Add user detail fields when "create" action is specified
@@ -103,6 +118,9 @@ function Invoke-AddJITAdminTemplate {
             }
             if (![string]::IsNullOrWhiteSpace($Request.Body.defaultUserName)) {
                 $TemplateObject.defaultUserName = $Request.Body.defaultUserName
+            }
+            if ($Request.Body.defaultUsageLocation) {
+                $TemplateObject.defaultUsageLocation = $Request.Body.defaultUsageLocation.value ?? $Request.Body.defaultUsageLocation
             }
 
             # defaultDomain is only saved for specific tenant templates (not AllTenants)
@@ -140,7 +158,7 @@ function Invoke-AddJITAdminTemplate {
         $ErrorMessage = Get-CippException -Exception $_
         $Result = "Failed to create JIT Admin Template: $($ErrorMessage.NormalizedError)"
         Write-LogMessage -headers $Headers -API $APIName -message $Result -Sev 'Error' -LogData $ErrorMessage
-        $StatusCode = [HttpStatusCode]::InternalServerError
+        $StatusCode = $FailCode ?? [HttpStatusCode]::InternalServerError
     }
 
     return ([HttpResponseContext]@{

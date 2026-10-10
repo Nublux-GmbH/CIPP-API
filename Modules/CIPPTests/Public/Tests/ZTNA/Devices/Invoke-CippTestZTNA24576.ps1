@@ -9,7 +9,7 @@ function Invoke-CippTestZTNA24576 {
     #Tested - Device
 
     try {
-        $DeviceConfigs = New-CIPPDbRequest -TenantFilter $Tenant -Type 'IntuneDeviceConfigurations'
+        $DeviceConfigs = Get-CIPPTestData -TenantFilter $Tenant -Type 'IntuneDeviceConfigurations'
 
         if (-not $DeviceConfigs) {
             Add-CippTestResult -TenantFilter $Tenant -TestId $TestId -TestType 'Devices' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Low' -Name 'Endpoint Analytics is enabled to help identify risks on Windows devices' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Tenant'
@@ -24,22 +24,22 @@ function Invoke-CippTestZTNA24576 {
         $Passed = $AssignedPolicies.Count -gt 0
 
         if ($Passed) {
-            $ResultMarkdown = "✅ An Endpoint analytics policy is created and assigned.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("✅ An Endpoint analytics policy is created and assigned.`n`n")
         } else {
-            $ResultMarkdown = "❌ Endpoint analytics policy is not created or not assigned.`n`n"
+            $ResultMarkdown = [System.Text.StringBuilder]::new("❌ Endpoint analytics policy is not created or not assigned.`n`n")
         }
 
         if ($WindowsHealthMonitoringPolicies.Count -gt 0) {
-            $ResultMarkdown += "## Endpoint Analytics Policies`n`n"
-            $ResultMarkdown += "| Policy Name | Assigned |`n"
-            $ResultMarkdown += "| :---------- | :------- |`n"
+            $null = $ResultMarkdown.Append("## Endpoint Analytics Policies`n`n")
+            $null = $ResultMarkdown.Append("| Policy Name | Assigned |`n")
+            $null = $ResultMarkdown.Append("| :---------- | :------- |`n")
 
             foreach ($policy in $WindowsHealthMonitoringPolicies) {
                 $assigned = if ($policy.assignments -and $policy.assignments.Count -gt 0) { '✅ Yes' } else { '❌ No' }
-                $ResultMarkdown += "| $($policy.displayName) | $assigned |`n"
+                $null = $ResultMarkdown.Append("| $($policy.displayName) | $assigned |`n")
             }
         } else {
-            $ResultMarkdown += "No Endpoint Analytics policies found in this tenant.`n"
+            $null = $ResultMarkdown.Append("No Endpoint Analytics policies found in this tenant.`n")
         }
 
         $Status = if ($Passed) { 'Passed' } else { 'Failed' }

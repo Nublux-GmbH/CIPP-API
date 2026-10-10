@@ -6,7 +6,7 @@ function Invoke-CippTestORCA233 {
     param($Tenant)
 
     try {
-        $AcceptedDomains = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
+        $AcceptedDomains = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAcceptedDomains'
 
         if (-not $AcceptedDomains) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA233' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No accepted domains found in database.' -Risk 'High' -Name 'Domains pointed at EOP or enhanced filtering used' -UserImpact 'High' -ImplementationEffort 'High' -Category 'Configuration'
@@ -34,14 +34,14 @@ function Invoke-CippTestORCA233 {
 
         if ($NonCompliantDomains.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All domains are properly configured for mail flow.`n`n"
-            $Result += "**Compliant Domains:** $($CompliantDomains.Count)"
+            $Result = [System.Text.StringBuilder]::new("All domains are properly configured for mail flow.`n`n")
+            $null = $Result.Append("**Compliant Domains:** $($CompliantDomains.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($NonCompliantDomains.Count) domains may not be properly configured for mail flow.`n`n"
-            $Result += "**Domains Needing Review:**`n`n"
+            $Result = [System.Text.StringBuilder]::new("$($NonCompliantDomains.Count) domains may not be properly configured for mail flow.`n`n")
+            $null = $Result.Append("**Domains Needing Review:**`n`n")
             foreach ($Domain in $NonCompliantDomains) {
-                $Result += "- $Domain`n"
+                $null = $Result.Append("- $Domain`n")
             }
         }
 

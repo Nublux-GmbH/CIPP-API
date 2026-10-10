@@ -6,7 +6,7 @@ function Invoke-CippTestORCA112 {
     param($Tenant)
 
     try {
-        $Policies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
+        $Policies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoAntiPhishPolicies'
 
         if (-not $Policies) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ORCA112' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'High' -Name 'Anti-spoofing protection action configured' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Anti-Phish'
@@ -26,16 +26,16 @@ function Invoke-CippTestORCA112 {
 
         if ($FailedPolicies.Count -eq 0) {
             $Status = 'Passed'
-            $Result = "All anti-phishing policies have anti-spoofing action set to Move to Junk Email folder.`n`n"
-            $Result += "**Compliant Policies:** $($PassedPolicies.Count)"
+            $Result = [System.Text.StringBuilder]::new("All anti-phishing policies have anti-spoofing action set to Move to Junk Email folder.`n`n")
+            $null = $Result.Append("**Compliant Policies:** $($PassedPolicies.Count)")
         } else {
             $Status = 'Failed'
-            $Result = "$($FailedPolicies.Count) anti-phishing policies do not have anti-spoofing action set to Move to Junk Email folder.`n`n"
-            $Result += "**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n"
-            $Result += "| Policy Name | Authentication Fail Action |`n"
-            $Result += "|------------|---------------------------|`n"
+            $Result = [System.Text.StringBuilder]::new("$($FailedPolicies.Count) anti-phishing policies do not have anti-spoofing action set to Move to Junk Email folder.`n`n")
+            $null = $Result.Append("**Non-Compliant Policies:** $($FailedPolicies.Count)`n`n")
+            $null = $Result.Append("| Policy Name | Authentication Fail Action |`n")
+            $null = $Result.Append("|------------|---------------------------|`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Identity) | $($Policy.AuthenticationFailAction) |`n"
+                $null = $Result.Append("| $($Policy.Identity) | $($Policy.AuthenticationFailAction) |`n")
             }
         }
 

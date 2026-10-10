@@ -6,7 +6,7 @@ function Invoke-CippTestZTNA21886 {
     param($Tenant)
     #Tested
     try {
-        $ServicePrincipals = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ServicePrincipals'
+        $ServicePrincipals = Get-CIPPTestData -TenantFilter $Tenant -Type 'ServicePrincipals'
         if (-not $ServicePrincipals) {
             Add-CippTestResult -TenantFilter $Tenant -TestId 'ZTNA21886' -TestType 'Identity' -Status 'Skipped' -ResultMarkdown 'No data found in database. This may be due to missing required licenses or data collection not yet completed.' -Risk 'Medium' -Name 'Applications are configured for automatic user provisioning' -UserImpact 'Low' -ImplementationEffort 'Medium' -Category 'Applications management'
             return
@@ -25,29 +25,28 @@ function Invoke-CippTestZTNA21886 {
 
         $Status = 'Investigate'
 
-        $ResultLines = @(
-            "Found $($AppsWithSSO.Count) application(s) configured for SSO."
-            ''
-            '**Applications with SSO enabled:**'
-        )
+        $ResultLines = [System.Collections.Generic.List[string]]::new()
+        $ResultLines.Add("Found $($AppsWithSSO.Count) application(s) configured for SSO.")
+        $ResultLines.Add('')
+        $ResultLines.Add('**Applications with SSO enabled:**')
 
         $SSOByType = $AppsWithSSO | Group-Object -Property preferredSingleSignOnMode
         foreach ($Group in $SSOByType) {
-            $ResultLines += ''
-            $ResultLines += "**$($Group.Name.ToUpper()) SSO** ($($Group.Count) app(s)):"
+            $ResultLines.Add('')
+            $ResultLines.Add("**$($Group.Name.ToUpper()) SSO** ($($Group.Count) app(s)):")
             $Top5 = $Group.Group | Select-Object -First 5
             foreach ($App in $Top5) {
-                $ResultLines += "- $($App.displayName)"
+                $ResultLines.Add("- $($App.displayName)")
             }
             if ($Group.Count -gt 5) {
-                $ResultLines += "- ... and $($Group.Count - 5) more"
+                $ResultLines.Add("- ... and $($Group.Count - 5) more")
             }
         }
 
-        $ResultLines += ''
-        $ResultLines += '**Note:** Provisioning template and job validation requires Graph API synchronization endpoint not available in cache.'
-        $ResultLines += ''
-        $ResultLines += '**Recommendation:** Configure automatic user provisioning for applications that support it to ensure consistent access management.'
+        $ResultLines.Add('')
+        $ResultLines.Add('**Note:** Provisioning template and job validation requires Graph API synchronization endpoint not available in cache.')
+        $ResultLines.Add('')
+        $ResultLines.Add('**Recommendation:** Configure automatic user provisioning for applications that support it to ensure consistent access management.')
 
         $Result = $ResultLines -join "`n"
 

@@ -19,12 +19,15 @@ function Invoke-EditJITAdminTemplate {
 
         # Validate required fields
         if ([string]::IsNullOrWhiteSpace($GUID)) {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw 'GUID is required'
         }
         if ([string]::IsNullOrWhiteSpace($TenantFilter)) {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw 'tenantFilter is required'
         }
         if ([string]::IsNullOrWhiteSpace($TemplateName)) {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw 'templateName is required'
         }
 
@@ -35,11 +38,12 @@ function Invoke-EditJITAdminTemplate {
 
         # Get the existing template
         $Table = Get-CippTable -tablename 'templates'
-        $SafeGUID = ConvertTo-CIPPODataFilterValue -Value $GUID -Type Guid
+        $SafeGUID = try { ConvertTo-CIPPODataFilterValue -Value $GUID -Type Guid } catch { $FailCode = [HttpStatusCode]::BadRequest; throw }
         $Filter = "PartitionKey eq 'JITAdminTemplate' and RowKey eq '$SafeGUID'"
         $ExistingTemplate = Get-CIPPAzDataTableEntity @Table -Filter $Filter
 
         if (!$ExistingTemplate) {
+            $FailCode = [HttpStatusCode]::NotFound
             throw "Template with GUID '$GUID' not found"
         }
 
@@ -58,6 +62,7 @@ function Invoke-EditJITAdminTemplate {
         }
 
         if ($DuplicateName) {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw "A template with name '$TemplateName' already exists for tenant '$TenantFilter'"
         }
 
@@ -77,7 +82,7 @@ function Invoke-EditJITAdminTemplate {
                         Write-LogMessage -headers $Headers -API $APIName -message "Unset default flag for existing template: $($data.templateName)" -Sev 'Info'
                     }
                 } catch {
-                    Write-LogMessage -headers $Headers -API $APIName -message "Failed to update existing template: $($_.Exception.Message)" -sev 'Warn'
+                    Write-LogMessage -headers $Headers -API $APIName -message "Failed to update existing template: $($_.Exception.Message)" -sev 'Warning'
                 }
             }
         }
@@ -85,6 +90,7 @@ function Invoke-EditJITAdminTemplate {
         # Validate user action fields
         $DefaultUserAction = $Request.Body.defaultUserAction
         if ($TenantFilter -eq 'AllTenants' -and $DefaultUserAction -eq 'select') {
+            $FailCode = [HttpStatusCode]::BadRequest
             throw 'defaultUserAction cannot be "select" when tenantFilter is "AllTenants"'
         }
 
@@ -94,11 +100,17 @@ function Invoke-EditJITAdminTemplate {
             templateName                = $TemplateName
             defaultForTenant            = $DefaultForTenant
             defaultRoles                = $Request.Body.defaultRoles
+            defaultGroups               = $Request.Body.defaultGroups
+            defaultUseRoles             = [bool]$Request.Body.defaultUseRoles
+            defaultUseGroups            = [bool]$Request.Body.defaultUseGroups
             defaultDuration             = $Request.Body.defaultDuration
             defaultExpireAction         = $Request.Body.defaultExpireAction
             defaultNotificationActions  = $Request.Body.defaultNotificationActions
             generateTAPByDefault        = [bool]$Request.Body.generateTAPByDefault
             reasonTemplate              = $Request.Body.reasonTemplate
+            defaultVacationMode         = [bool]$Request.Body.defaultVacationMode
+            defaultVacationCAPolicy     = $Request.Body.defaultVacationCAPolicy
+            defaultVacationExcludeAuditAlerts = [bool]$Request.Body.defaultVacationExcludeAuditAlerts
             createdBy                   = $ExistingData.createdBy
             createdDate                 = $ExistingData.createdDate
             modifiedBy                  = $UserDetails
@@ -108,6 +120,11 @@ function Invoke-EditJITAdminTemplate {
         # Add defaultUserAction if provided
         if (![string]::IsNullOrWhiteSpace($DefaultUserAction)) {
             $TemplateObject.defaultUserAction = $DefaultUserAction
+        }
+
+        # Add existing user selection when "select" action is specified
+        if ($DefaultUserAction -eq 'select' -and $Request.Body.defaultExistingUser) {
+            $TemplateObject.defaultExistingUser = $Request.Body.defaultExistingUser
         }
 
         # Add user detail fields when "create" action is specified
@@ -121,6 +138,9 @@ function Invoke-EditJITAdminTemplate {
             }
             if (![string]::IsNullOrWhiteSpace($Request.Body.defaultUserName)) {
                 $TemplateObject.defaultUserName = $Request.Body.defaultUserName
+            }
+            if ($Request.Body.defaultUsageLocation) {
+                $TemplateObject.defaultUsageLocation = $Request.Body.defaultUsageLocation.value ?? $Request.Body.defaultUsageLocation
             }
 
             # defaultDomain is only saved for specific tenant templates (not AllTenants)
@@ -155,7 +175,7 @@ function Invoke-EditJITAdminTemplate {
         $ErrorMessage = Get-CippException -Exception $_
         $Result = "Failed to update JIT Admin Template: $($ErrorMessage.NormalizedError)"
         Write-LogMessage -headers $Headers -API $APIName -message $Result -Sev 'Error' -LogData $ErrorMessage
-        $StatusCode = [HttpStatusCode]::InternalServerError
+        $StatusCode = $FailCode ?? [HttpStatusCode]::InternalServerError
     }
 
     return ([HttpResponseContext]@{

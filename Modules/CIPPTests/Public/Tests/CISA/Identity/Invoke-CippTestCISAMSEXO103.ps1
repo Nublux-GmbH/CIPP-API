@@ -16,24 +16,24 @@ function Invoke-CippTestCISAMSEXO103 {
     )
 
     try {
-        $MalwarePolicies = New-CIPPDbRequest -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicy'
+        $MalwarePolicies = Get-CIPPTestData -TenantFilter $Tenant -Type 'ExoMalwareFilterPolicies'
 
         if (-not $MalwarePolicies) {
-            Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoMalwareFilterPolicy cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Email scanning SHALL be capable of reviewing emails after delivery' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO103' -TenantFilter $Tenant
+            Add-CippTestResult -Status 'Skipped' -ResultMarkdown 'ExoMalwareFilterPolicies cache not found. Please refresh the cache for this tenant.' -Risk 'High' -Name 'Email scanning SHALL be capable of reviewing emails after delivery' -UserImpact 'Low' -ImplementationEffort 'Low' -Category 'Email Protection' -TestId 'CISAMSEXO103' -TenantFilter $Tenant
             return
         }
 
         $FailedPolicies = $MalwarePolicies | Where-Object { -not $_.ZapEnabled }
 
         if ($FailedPolicies.Count -eq 0) {
-            $Result = "✅ **Pass**: All $($MalwarePolicies.Count) malware filter policy/policies have ZAP (Zero-hour Auto Purge) enabled."
+            $Result = [System.Text.StringBuilder]::new("✅ **Pass**: All $($MalwarePolicies.Count) malware filter policy/policies have ZAP (Zero-hour Auto Purge) enabled.")
             $Status = 'Passed'
         } else {
-            $Result = "❌ **Fail**: $($FailedPolicies.Count) of $($MalwarePolicies.Count) malware filter policy/policies do not have ZAP enabled:`n`n"
-            $Result += "| Policy Name | ZAP Enabled |`n"
-            $Result += "| :---------- | :---------- |`n"
+            $Result = [System.Text.StringBuilder]::new("❌ **Fail**: $($FailedPolicies.Count) of $($MalwarePolicies.Count) malware filter policy/policies do not have ZAP enabled:`n`n")
+            $null = $Result.Append("| Policy Name | ZAP Enabled |`n")
+            $null = $Result.Append("| :---------- | :---------- |`n")
             foreach ($Policy in $FailedPolicies) {
-                $Result += "| $($Policy.Name) | $($Policy.ZapEnabled) |`n"
+                $null = $Result.Append("| $($Policy.Name) | $($Policy.ZapEnabled) |`n")
             }
             $Status = 'Failed'
         }

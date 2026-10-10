@@ -46,7 +46,6 @@ function Invoke-ExecGDAPTrace {
     # Initialize API logging
     $APIName = $Request.Params.CIPPEndpoint
     $Headers = $Request.Headers
-    Write-LogMessage -Headers $Headers -API $APIName -message 'Accessed this API' -Sev 'Debug'
 
     # Extract query parameters
     # TenantFilter: The customer tenant ID or domain name to test access for
@@ -163,7 +162,7 @@ function Invoke-ExecGDAPTrace {
             # Filter didn't work, try direct lookup by UPN (works if UPN is unique identifier)
             $User = New-GraphGetRequest -uri "https://graph.microsoft.com/beta/users/$UPN" -tenantid $env:TenantID -NoAuthCheck $true
         } catch {
-            Write-LogMessage -Headers $Headers -API $APIName -message "Could not find user $UPN in partner tenant: $($_.Exception.Message)" -sev 'Warn'
+            Write-LogMessage -Headers $Headers -API $APIName -message "Could not find user $UPN in partner tenant: $($_.Exception.Message)" -sev 'Warning'
         }
 
         # If user not found, return error
@@ -212,7 +211,7 @@ function Invoke-ExecGDAPTrace {
                 }
             }
         } catch {
-            Write-LogMessage -Headers $Headers -API $APIName -message "Could not get user group memberships: $($_.Exception.Message)" -sev 'Warn'
+            Write-LogMessage -Headers $Headers -API $APIName -message "Could not get user group memberships: $($_.Exception.Message)" -sev 'Warning'
         }
 
         # ============================================================================
@@ -343,6 +342,7 @@ function Invoke-ExecGDAPTrace {
         # ========================================================================
         $AllAccessAssignments = [System.Collections.Generic.List[object]]::new()
         $RelationshipAssignmentMap = @{}  # Maps relationshipId -> list of assignments
+        $FailedRelationships = 0
 
         foreach ($Relationship in $Relationships) {
             $RelationshipId = $Relationship.id
@@ -394,7 +394,8 @@ function Invoke-ExecGDAPTrace {
                     })
                 }
             } catch {
-                Write-LogMessage -Headers $Headers -API $APIName -message "Could not get access assignments for relationship ${RelationshipName}: $($_.Exception.Message)" -sev 'Warn'
+                $FailedRelationships++
+                Write-LogMessage -Headers $Headers -API $APIName -message "Could not get access assignments for relationship ${RelationshipName}: $($_.Exception.Message)" -sev 'Warning'
             }
         }
 
@@ -444,7 +445,7 @@ function Invoke-ExecGDAPTrace {
 
             Write-LogMessage -Headers $Headers -API $APIName -message "Fetched $($AllGroups.Count) total groups, $($GroupLookup.Count) in lookup" -Sev 'Debug'
         } catch {
-            Write-LogMessage -Headers $Headers -API $APIName -message "Could not fetch all groups: $($_.Exception.Message). Will use fallback for missing groups." -sev 'Warn'
+            Write-LogMessage -Headers $Headers -API $APIName -message "Could not fetch all groups: $($_.Exception.Message). Will use fallback for missing groups." -sev 'Warning'
         }
 
         # ========================================================================
@@ -485,12 +486,12 @@ function Invoke-ExecGDAPTrace {
                     $GroupId = $Assignment.value.accessContainer.accessContainerId
                     $Assignment = $Assignment.value
                 } else {
-                    Write-LogMessage -Headers $Headers -API $APIName -message "Access assignment missing accessContainer: $($Assignment | ConvertTo-Json -Compress)" -sev 'Warn'
+                    Write-LogMessage -Headers $Headers -API $APIName -message "Access assignment missing accessContainer: $($Assignment | ConvertTo-Json -Compress)" -sev 'Warning'
                     continue
                 }
 
                 if ([string]::IsNullOrWhiteSpace($GroupId)) {
-                    Write-LogMessage -Headers $Headers -API $APIName -message "Access assignment has empty accessContainerId: $($Assignment | ConvertTo-Json -Compress)" -sev 'Warn'
+                    Write-LogMessage -Headers $Headers -API $APIName -message "Access assignment has empty accessContainerId: $($Assignment | ConvertTo-Json -Compress)" -sev 'Warning'
                     continue
                 }
 
@@ -503,7 +504,7 @@ function Invoke-ExecGDAPTrace {
                 }
 
                 if (-not $Roles -or $Roles.Count -eq 0) {
-                    Write-LogMessage -Headers $Headers -API $APIName -message "Access assignment for group $GroupId has no roles assigned" -sev 'Warn'
+                    Write-LogMessage -Headers $Headers -API $APIName -message "Access assignment for group $GroupId has no roles assigned" -sev 'Warning'
                     $Roles = @()
                 }
 
@@ -518,7 +519,7 @@ function Invoke-ExecGDAPTrace {
                         id          = $GroupId
                         displayName = "Unknown Group ($GroupId)"
                     }
-                    Write-LogMessage -Headers $Headers -API $APIName -message "Group $GroupId not found in lookup, using fallback" -sev 'Warn'
+                    Write-LogMessage -Headers $Headers -API $APIName -message "Group $GroupId not found in lookup, using fallback" -sev 'Warning'
                 }
 
                 # Process the assignment even if group lookup failed - we still have the group ID and roles
@@ -654,12 +655,12 @@ function Invoke-ExecGDAPTrace {
                             } elseif ($Role -is [string]) {
                                 $RoleId = $Role
                             } else {
-                                Write-LogMessage -Headers $Headers -API $APIName -message "Role object missing roleDefinitionId: $($Role | ConvertTo-Json -Compress)" -sev 'Warn'
+                                Write-LogMessage -Headers $Headers -API $APIName -message "Role object missing roleDefinitionId: $($Role | ConvertTo-Json -Compress)" -sev 'Warning'
                                 continue
                             }
 
                             if ([string]::IsNullOrWhiteSpace($RoleId)) {
-                                Write-LogMessage -Headers $Headers -API $APIName -message "Role has empty roleDefinitionId for group $GroupId" -sev 'Warn'
+                                Write-LogMessage -Headers $Headers -API $APIName -message "Role has empty roleDefinitionId for group $GroupId" -sev 'Warning'
                                 continue
                             }
 
@@ -855,7 +856,7 @@ function Invoke-ExecGDAPTrace {
         }
 
     return [HttpResponseContext]@{
-        StatusCode = [HttpStatusCode]::OK
+        StatusCode = Get-CippBulkStatusCode -Total @($Relationships).Count -Failed $FailedRelationships
         Body       = $Results
         }
 
